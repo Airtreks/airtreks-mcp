@@ -86,8 +86,8 @@ export const hubRules: HubRule[] = [
       { carrier: "QF", from: "SCL", to: "SYD", bookability: 0, samples: 118 },
     ],
     fixes: [
-      "AA SCL-DFW (73%) + AA DFW-LAX (73%) + QF LAX-SYD (54%)",
-      "For Auckland, continue NZ SYD-AKL (40%) — no proven direct LAX-AKL",
+      "AA SCL-DFW + AA DFW-LAX + QF LAX-SYD",
+      "For Auckland, continue NZ SYD-AKL — no proven direct LAX-AKL",
     ],
   },
 ];
@@ -111,8 +111,8 @@ export const hubConnections: HubConnection[] = [
   { from: "LAX", to: "SYD", via: [], carriers: ["QF"], notes: "Direct — QF SYD-LAX 80%" },
   { from: "LHR", to: "JFK", via: [], carriers: ["BA", "AA"], notes: "Direct — strong bookability" },
   { from: "SIN", to: "LHR", via: [], carriers: ["SQ"], notes: "Direct — kangaroo route hub" },
-  { from: "SCL", to: "SYD", via: ["DFW", "LAX"], carriers: ["AA", "QF"], notes: "QF SCL-SYD is dead (0/118). AA SCL-DFW 73% + AA DFW-LAX 73% + QF LAX-SYD 54%" },
-  { from: "SCL", to: "AKL", via: ["DFW", "LAX", "SYD"], carriers: ["AA", "QF", "NZ"], notes: "Route north via US, then NZ SYD-AKL 40%. No proven direct LAX-AKL" },
+  { from: "SCL", to: "SYD", via: ["DFW", "LAX"], carriers: ["AA", "QF"], notes: "Direct SCL-SYD does not price on RTW fares — route north via the US" },
+  { from: "SCL", to: "AKL", via: ["DFW", "LAX", "SYD"], carriers: ["AA", "QF", "NZ"], notes: "Route north via the US, then onward from SYD. No proven direct LAX-AKL" },
 ];
 
 export function isDeadLeg(from: string, to: string, carrier?: string): DeadLeg | null {
