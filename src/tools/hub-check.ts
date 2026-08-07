@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { findHubConnection, isDeadLeg, hubRules, hubConnections } from "../data/hubs.js";
+import { TRIP_PLANNER_URL } from "../lib/links.js";
 
 export const hubCheckSchema = {
   from: z.string().describe("Origin IATA airport code (e.g. 'SYD')"),
@@ -67,7 +68,7 @@ export function hubCheck(args: { from: string; to: string; alliance?: string }) 
   // Surface sector suggestion
   result.surfaceSectorTip =
     "If these cities are close enough to travel overland, a surface sector (fly into one, out of the other) can save a flight leg and reduce cost.";
-  result.bookWithAirTreks = "https://www.airtreks.com/trip-planner/";
+  result.bookWithAirTreks = TRIP_PLANNER_URL;
 
   return result;
 }

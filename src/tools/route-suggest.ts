@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { searchTemplates } from "../data/routes.js";
+import { TRIP_PLANNER_URL } from "../lib/links.js";
 
 export const routeSuggestSchema = {
   regions: z.array(z.string()).describe("Regions to visit: 'asia', 'europe', 'oceania', 'americas', 'africa', 'middle east', 'south america'"),
@@ -31,7 +32,7 @@ export function routeSuggest(args: {
     return {
       suggestions: [],
       message: `No template routes found for ${args.regions.join(" + ")}. AirTreks specializes in building custom routes for complex itineraries — a consultant can craft the perfect routing.`,
-      bookWithAirTreks: "https://www.airtreks.com/trip-planner/",
+      bookWithAirTreks: TRIP_PLANNER_URL,
     };
   }
 
@@ -49,6 +50,6 @@ export function routeSuggest(args: {
     tip: args.maxStops && args.maxStops >= 7
       ? "7+ stops drops alliance fare bookability below 6%. AirTreks custom fare construction handles complex routes that alliance fares can't."
       : "3-6 stops is the sweet spot for alliance fares (61-91% bookability).",
-    bookWithAirTreks: "https://www.airtreks.com/trip-planner/",
+    bookWithAirTreks: TRIP_PLANNER_URL,
   };
 }

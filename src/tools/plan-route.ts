@@ -3,6 +3,7 @@ import { routeValidate } from "./route-validate.js";
 import { customRouteBuild } from "./custom-route-build.js";
 import { getAirportRegion } from "../data/region-bridges.js";
 import { bookabilityByLegCount } from "../data/hubs.js";
+import { TRIP_PLANNER_URL } from "../lib/links.js";
 
 export const planRouteSchema = {
   cities: z.array(z.string()).describe("Ordered list of IATA city/airport codes (e.g. ['LAX', 'NRT', 'BKK', 'LIS', 'LAX'])"),
@@ -284,7 +285,7 @@ export function planRoute(args: {
     };
   }
 
-  result.bookWithAirTreks = "https://www.airtreks.com/trip-planner/";
+  result.bookWithAirTreks = TRIP_PLANNER_URL;
 
   return result;
 }
