@@ -4,12 +4,15 @@
  *
  * Env vars:
  *   APEX_API_URL       — https://kite.bootsnall.com/api (default)
- *   APEX_CLIENT_ID     — OAuth client ID
- *   APEX_CLIENT_SECRET — OAuth client secret
- *   APEX_BEARER_TOKEN  — Pre-generated bearer token (optional, skips OAuth)
+ *   APEX_API_KEY       — Apex-issued API key ("atk_…", AIR-505); preferred.
+ *                        Mint it restricted to api/tripideas/add-from-indie only.
+ *   APEX_CLIENT_ID     — OAuth client ID (legacy)
+ *   APEX_CLIENT_SECRET — OAuth client secret (legacy)
+ *   APEX_BEARER_TOKEN  — Pre-generated bearer token (legacy, skips OAuth)
  */
 
 const APEX_API_URL = process.env.APEX_API_URL || "https://kite.bootsnall.com/api";
+const API_KEY = process.env.APEX_API_KEY || "";
 const CLIENT_ID = process.env.APEX_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.APEX_CLIENT_SECRET || "";
 
@@ -17,7 +20,7 @@ let cachedToken: string | null = process.env.APEX_BEARER_TOKEN || null;
 let tokenExpiry = cachedToken ? Date.now() + 365 * 24 * 3600 * 1000 : 0;
 
 export function isConfigured(): boolean {
-  return !!(cachedToken || (CLIENT_ID && CLIENT_SECRET));
+  return !!(API_KEY || cachedToken || (CLIENT_ID && CLIENT_SECRET));
 }
 
 async function getToken(): Promise<string | null> {
@@ -49,18 +52,24 @@ async function getToken(): Promise<string | null> {
 }
 
 async function post(endpoint: string, body: Record<string, unknown>): Promise<any> {
-  const token = await getToken();
-  if (!token) throw new Error("APEX API not configured — set APEX_BEARER_TOKEN or APEX_CLIENT_ID/SECRET");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+
+  if (API_KEY) {
+    headers["X-Api-Key"] = API_KEY;
+  } else {
+    const token = await getToken();
+    if (!token) throw new Error("APEX API not configured — set APEX_API_KEY or APEX_BEARER_TOKEN or APEX_CLIENT_ID/SECRET");
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   const url = `${APEX_API_URL}${endpoint}`;
 
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
@@ -130,7 +139,7 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     serviceclass,
     notes,
     route,
-    origin: "mcp-agent",
+    origin: "airtreks-mcp",
     ref: "",
     source: 0,
     passengers: Array.from({ length: passengers }, (_, i) => ({
