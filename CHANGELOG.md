@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0 — 2026-08-19
+
+- **Structural split (AIR-803):** the public package no longer talks to AirTreks' internal systems. `trip_idea_create` on a local (stdio/npx) install now relays the request to the hosted API at mcp.airtreks.com using your AirTreks API key (`AIRTREKS_API_KEY`, from `POST https://mcp.airtreks.com/register`). The hosted deployment injects its own backend via the new `TripBackend` seam (`setTripBackend`). Behavior, tool names, and schemas are unchanged for all users.
+- Local installs no longer need any server-side credentials; the previous `APEX_*` variables are gone from this package.
+
 ## 1.0.3 — 2026-08-19
 
 First npm release carrying the AIR-786 lead-submission overhaul. Everything below has been live on mcp.airtreks.com; this release brings the `npx airtreks-mcp` (stdio) distribution up to date.

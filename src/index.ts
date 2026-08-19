@@ -45,7 +45,7 @@ function tracked(name: string, fn: (args: any) => any) {
 }
 
 // All routing tools are pure lookups against bundled data (readOnlyHint, closed
-// world). trip_idea_create is the exception: it writes a lead into APEX.
+// world). trip_idea_create is the exception: it submits a trip request.
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false };
 const LEAD_TOOL = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true };
 

@@ -1,8 +1,8 @@
 /**
  * Duplicate-submission guard for trip_idea_create.
  *
- * Apex's add-from-indie dedupes only by tp_user_trip_id, which MCP leads never
- * carry — so every retry from an AI agent would create a fresh lead in APEX.
+ * The trip backend has no dedupe for requests submitted this way — every
+ * retry from an AI agent would create a fresh trip request.
  * Remember recent submissions (email + route) on the persistent volume and
  * reuse the existing trip idea id inside the window.
  */
