@@ -94,10 +94,10 @@ export interface TpQuestion {
   options: string[];
 }
 
-/** The Trip Planner questionnaire, proxied by APEX (api/tripideas/tp-questions, AIR-786). */
+/** The Trip Planner questionnaire, proxied by APEX's pre-existing api/tpquestions/list. */
 export async function getTpQuestions(): Promise<TpQuestion[]> {
-  const result = await post("/tripideas/tp-questions", {});
-  const list = Array.isArray(result?.questions) ? result.questions : [];
+  const result = await post("/tpquestions/list", {});
+  const list = Array.isArray(result) ? result : [];
   return list
     .filter((q: any) => q?.name && q?.question)
     .map((q: any) => ({
