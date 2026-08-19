@@ -2,31 +2,39 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.SEKeener/airtreks-mcp",
   "title": "AirTreks MCP",
-  "description": "Multi-city flight routing intelligence — plan RTW trips, validate alliances, get carrier picks.",
+  "description": "Multi-city flight routing intelligence \u2014 plan RTW trips, validate alliances, get carrier picks.",
   "websiteUrl": "https://airtreks.com",
   "icons": [
     {
       "src": "https://airtreks.com/brand/airtreks-icon-512.png",
       "mimeType": "image/png",
-      "sizes": ["512x512"],
+      "sizes": [
+        "512x512"
+      ],
       "theme": "light"
     },
     {
       "src": "https://airtreks.com/brand/airtreks-icon-dark-512.png",
       "mimeType": "image/png",
-      "sizes": ["512x512"],
+      "sizes": [
+        "512x512"
+      ],
       "theme": "dark"
     },
     {
       "src": "https://airtreks.com/brand/airtreks-icon.svg",
       "mimeType": "image/svg+xml",
-      "sizes": ["any"],
+      "sizes": [
+        "any"
+      ],
       "theme": "light"
     },
     {
       "src": "https://airtreks.com/brand/airtreks-icon-dark.svg",
       "mimeType": "image/svg+xml",
-      "sizes": ["any"],
+      "sizes": [
+        "any"
+      ],
       "theme": "dark"
     }
   ],
@@ -34,12 +42,12 @@
     "url": "https://github.com/SEKeener/airtreks-mcp",
     "source": "github"
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "airtreks-mcp",
-      "version": "1.0.1",
+      "version": "1.0.3",
       "transport": {
         "type": "stdio"
       }
