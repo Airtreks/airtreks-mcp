@@ -107,6 +107,15 @@ export async function getTpQuestions(): Promise<TpQuestion[]> {
     }));
 }
 
+/**
+ * Accounts auto-login URL into the customer's Trip Planner trip (AIR-786).
+ * Best-effort: callers treat null as "no link available".
+ */
+export async function getTripIdeaMagicLink(tripIdeaId: number | string): Promise<string | null> {
+  const result = await post("/tripideas/magic-link", { trip_idea_id: tripIdeaId });
+  return typeof result?.url === "string" && result.url ? result.url : null;
+}
+
 export interface CreateTripIdeaOpts {
   firstName: string;
   lastName: string;
