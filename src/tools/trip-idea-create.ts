@@ -10,8 +10,8 @@ export const tripIdeaCreateSchema = {
   phone: z.string().optional().describe("Customer phone number"),
 
   // Trip details
-  cities: z.array(z.string()).describe("Ordered list of IATA city/airport codes"),
-  dates: z.array(z.string()).optional().describe("Departure dates for each leg (ISO format, e.g. '2026-09-15')"),
+  cities: z.array(z.string()).describe("Ordered list of 3-letter IATA city/airport codes (e.g. ['SFO', 'NRT', 'BKK'])"),
+  dates: z.array(z.string()).min(1).describe("Departure dates for each leg (ISO format, e.g. '2026-09-15'). At least the first — the trip departure date — is required; APEX cannot create a lead without it. If the customer is unsure, use their best estimate and set flexibleDates."),
   passengers: z.number().optional().describe("Number of passengers (default 1)"),
   cabin: z.enum(["economy", "premium", "business"]).optional().describe("Cabin class preference"),
   budget: z.enum(["budget", "mid", "premium", "business"]).optional().describe("Budget tier"),
@@ -30,7 +30,7 @@ export async function tripIdeaCreate(args: {
   name: string;
   phone?: string;
   cities: string[];
-  dates?: string[];
+  dates: string[];
   passengers?: number;
   cabin?: string;
   budget?: string;
@@ -46,12 +46,18 @@ export async function tripIdeaCreate(args: {
   } = args;
 
   // A lead is only created once all needed information exists (AIR-786).
+  // The required set mirrors APEX's TripIdea::$mandatory (route, pax_no,
+  // departure_date, people_id) — a drift-guard test in the apex repo pins it.
   // Report everything that's missing in one pass so the agent can collect it
   // in a single follow-up instead of failing field by field.
+  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   const missing: string[] = [];
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) missing.push("a valid customer email address");
   if (!name || !name.trim()) missing.push("the customer's full name");
   if (!cities || cities.length < 2) missing.push("at least 2 cities (ordered route)");
+  else if (cities.some((c) => !/^[A-Za-z]{3}$/.test(c.trim()))) missing.push("3-letter IATA codes for every city (e.g. 'SFO', not 'San Francisco')");
+  if (!dates?.length || !ISO_DATE.test(dates[0] ?? "")) missing.push("the trip departure date as dates[0] (ISO format, e.g. '2026-09-15'; use the customer's best estimate plus flexibleDates if unsure)");
+  else if (dates.some((d) => !ISO_DATE.test(d))) missing.push("every date in ISO format (YYYY-MM-DD)");
   if (missing.length) {
     return {
       error: `Cannot create the trip idea yet — still needed: ${missing.join("; ")}.`,
