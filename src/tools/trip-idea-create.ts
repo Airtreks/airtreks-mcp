@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isConfigured, createTripIdea } from "../lib/apex-client.js";
+import { isConfigured, createTripIdea, getTripIdeaMagicLink } from "../lib/apex-client.js";
 import { findRecentSubmission, recordSubmission } from "../lib/recent-submissions.js";
 import { getQuestionsCached } from "../lib/tp-questions.js";
 import { planRoute } from "./plan-route.js";
@@ -123,6 +123,7 @@ export async function tripIdeaCreate(args: {
       tripIdeaId: recent.tripIdeaId,
       message: `This trip was already submitted as trip idea #${recent.tripIdeaId} — an AirTreks consultant already has it. No new request was created.`,
       route: cities.map((c) => c.toUpperCase()).join(" -> "),
+      viewTripUrl: await getTripIdeaMagicLink(recent.tripIdeaId).catch(() => null),
     };
   }
 
@@ -230,11 +231,25 @@ export async function tripIdeaCreate(args: {
 
     if (result.id) recordSubmission(email, cities, result.id);
 
+    // Solutions auto-created and emailed when the lead qualified (AIR-786).
+    const solutionIds = Array.isArray(result.raw?.data?.solutionIds) ? result.raw.data.solutionIds : [];
+
+    // Accounts auto-login link into the customer's Trip Planner trip —
+    // best-effort, the lead exists either way.
+    const viewTripUrl = result.id ? await getTripIdeaMagicLink(result.id).catch(() => null) : null;
+
     return {
       success: true,
       tripIdeaId: result.id,
-      message: `Trip idea #${result.id} created in APEX. An AirTreks consultant will review your ${cities.length - 1}-leg itinerary and reach out within 1 business day.`,
+      message: solutionIds.length
+        ? `Trip idea #${result.id} created in APEX and ${solutionIds.length} priced solution(s) were automatically prepared and emailed to the customer. An AirTreks consultant will follow up.`
+        : `Trip idea #${result.id} created in APEX. An AirTreks consultant will review your ${cities.length - 1}-leg itinerary and reach out within 1 business day.`,
       route: cities.map((c) => c.toUpperCase()).join(" -> "),
+      viewTripUrl,
+      viewTripUrlNote: viewTripUrl
+        ? "Share this link with the customer — it signs them straight into their AirTreks trip page to view solutions and prices."
+        : undefined,
+      autoSolutionsSent: solutionIds.length || undefined,
       consultant: "A consultant will be assigned based on route expertise and availability.",
       whatHappensNext: [
         "An AirTreks consultant receives your full routing analysis and preferences",
