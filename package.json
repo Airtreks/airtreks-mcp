@@ -4,13 +4,13 @@
   "description": "AirTreks MCP Server \u2014 complex flight routing intelligence for AI agents. Plan multi-city trips, validate alliance routings, get carrier recommendations, and create trip ideas.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SEKeener/airtreks-mcp"
+    "url": "git+https://github.com/Airtreks/airtreks-mcp.git"
   },
   "mcpName": "io.github.SEKeener/airtreks-mcp",
   "homepage": "https://mcp.airtreks.com",
   "type": "module",
   "bin": {
-    "airtreks-mcp": "./dist/index.js"
+    "airtreks-mcp": "dist/index.js"
   },
   "files": [
     "dist",
