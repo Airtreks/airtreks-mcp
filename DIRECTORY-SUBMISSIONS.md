@@ -52,7 +52,7 @@ Local stdio alternative:
 |-----------|--------|------|
 | awesome-mcp-servers (punkpeye) | PR submitted (open) | https://github.com/punkpeye/awesome-mcp-servers/pull/7293 |
 | Official MCP Registry | Published 2026-07-13 (v1.0.2, remotes + icons) | https://registry.modelcontextprotocol.io/v0/servers?search=airtreks |
-| npm | Published (v1.0.1, 355 downloads) | https://www.npmjs.com/package/airtreks-mcp |
+| npm | Published v1.1.1 (2026-08-19; 1.1.0 unpublished — shipped stale internal files; 1.0.x = pre-AIR-786) | https://www.npmjs.com/package/airtreks-mcp |
 | mcp.so | Needs GitHub login to submit | https://mcp.so/submit |
 | mcpservers.org | Submitted 2026-06-25, pending review | https://mcpservers.org/submit |
 | PulseMCP | Auto-ingests from Official MCP Registry | https://www.pulsemcp.com |
