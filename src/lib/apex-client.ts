@@ -42,7 +42,8 @@ async function getToken(): Promise<string | null> {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`APEX OAuth failed (${res.status}): ${text}`);
+    console.error(`[trip-service] auth failed (${res.status}): ${text.slice(0, 1000)}`);
+    throw new Error(`trip service authentication failed (status ${res.status})`);
   }
 
   const data = await res.json() as { access_token: string; expires_in: number };
@@ -82,7 +83,14 @@ async function post(endpoint: string, body: Record<string, unknown>): Promise<an
   }
 
   if (!res.ok) {
-    throw new Error(`APEX API error (${res.status}): ${JSON.stringify(data)}`);
+    // Full detail (incl. any backend stack trace) stays in the server log —
+    // callers relay error messages to end users, so the thrown message must
+    // be short and free of internal system names (AIR-802).
+    console.error(`[trip-service] ${endpoint} failed (${res.status}):`, JSON.stringify(data).slice(0, 4000));
+    const firstLine = typeof data?.message === "string"
+      ? data.message.trim().split("\n").find((l: string) => l.trim() !== "")?.trim().slice(0, 160)
+      : undefined;
+    throw new Error(firstLine || `the trip service returned status ${res.status}`);
   }
 
   return data;
