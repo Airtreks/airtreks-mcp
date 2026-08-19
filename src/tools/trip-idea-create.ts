@@ -26,7 +26,7 @@ export const tripIdeaCreateSchema = {
   agentContext: z.string().optional().describe("Summary of what the AI agent learned about this trip (auto-generated routing analysis, customer preferences discussed, etc.)"),
 
   // The Trip Planner questionnaire — dynamic, served by APEX (AIR-786)
-  questionsAnswers: z.record(z.string(), z.string()).optional().describe("The customer's answers to AirTreks' planning questions, keyed by question name (e.g. {\"guidance\": \"I want expert guidance from humans\"}). Required, but don't guess the questions: call once without this — the response lists the current questions and their options to ask the customer."),
+  questionsAnswers: z.union([z.record(z.string(), z.string()), z.string()]).optional().describe("The customer's answers to AirTreks' planning questions, keyed by question name (e.g. {\"guidance\": \"I want expert guidance from humans\"}). A JSON-encoded string of the same object is also accepted. Required, but don't guess the questions: call once without this — the response lists the current questions and their options to ask the customer."),
 };
 
 export async function tripIdeaCreate(args: {
@@ -42,7 +42,7 @@ export async function tripIdeaCreate(args: {
   preferences?: string[];
   notes?: string;
   agentContext?: string;
-  questionsAnswers?: Record<string, string>;
+  questionsAnswers?: Record<string, string> | string;
 }) {
   const {
     email, name, phone,
@@ -70,7 +70,22 @@ export async function tripIdeaCreate(args: {
   // without a redeploy. If APEX can't serve them and no cache exists, the
   // requirement is skipped: a lead without answers beats no lead.
   const tpQuestions = await getQuestionsCached();
-  const answers = questionsAnswers ?? {};
+  // Clients that cached the tool schema before questionsAnswers existed pass
+  // the object JSON-stringified — accept that form so they don't loop forever
+  // on "resubmit with questionsAnswers".
+  let answers: Record<string, string> = {};
+  if (typeof questionsAnswers === "string") {
+    try {
+      const parsed = JSON.parse(questionsAnswers);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        for (const [k, v] of Object.entries(parsed)) answers[k] = String(v);
+      }
+    } catch {
+      // unparseable — treated as unanswered; the questions ride back below
+    }
+  } else if (questionsAnswers) {
+    answers = questionsAnswers;
+  }
   const unanswered = tpQuestions.filter((q) => {
     const a = answers[q.name]?.trim();
     if (!a) return true;
