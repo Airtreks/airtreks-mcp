@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1 — 2026-08-19
+
+- Build now cleans `dist/` first: the 1.1.0 tarball shipped stale, unreferenced compiled files from pre-1.1.0 builds (tsc never deletes outputs of removed modules). 1.1.0 is unpublished; this is the same code with a clean artifact.
+
 ## 1.1.0 — 2026-08-19
 
 - **Structural split (AIR-803):** the public package no longer talks to AirTreks' internal systems. `trip_idea_create` on a local (stdio/npx) install now relays the request to the hosted API at mcp.airtreks.com using your AirTreks API key (`AIRTREKS_API_KEY`, from `POST https://mcp.airtreks.com/register`). The hosted deployment injects its own backend via the new `TripBackend` seam (`setTripBackend`). Behavior, tool names, and schemas are unchanged for all users.
