@@ -95,7 +95,7 @@ export async function tripIdeaCreate(args: {
 
   if (missing.length) {
     return {
-      error: `Cannot create the trip idea yet — still needed: ${missing.join("; ")}.`,
+      error: `Cannot submit the trip request yet — still needed: ${missing.join("; ")}.`,
       questions: unanswered.length
         ? unanswered.map((q) => ({ name: q.name, question: q.question, options: q.options }))
         : undefined,
@@ -121,7 +121,7 @@ export async function tripIdeaCreate(args: {
       success: true,
       duplicate: true,
       tripIdeaId: recent.tripIdeaId,
-      message: `This trip was already submitted as trip idea #${recent.tripIdeaId} — an AirTreks consultant already has it. No new request was created.`,
+      message: `This trip was already submitted as trip request #${recent.tripIdeaId} — an AirTreks travel consultant already has it. No new request was created.`,
       route: cities.map((c) => c.toUpperCase()).join(" -> "),
       viewTripUrl: await getTripIdeaMagicLink(recent.tripIdeaId).catch(() => null),
     };
@@ -130,7 +130,7 @@ export async function tripIdeaCreate(args: {
   // Check APEX connectivity
   if (!isConfigured()) {
     return {
-      error: "APEX integration not configured. Trip idea cannot be created automatically.",
+      error: "AirTreks' trip submission service isn't available right now, so the trip request couldn't be created automatically.",
       fallback: {
         message: "Please submit your trip request directly at the link below. Include your route and travel dates.",
         route: cities.map((c) => c.toUpperCase()).join(" -> "),
@@ -242,12 +242,12 @@ export async function tripIdeaCreate(args: {
       success: true,
       tripIdeaId: result.id,
       message: solutionIds.length
-        ? `Trip idea #${result.id} created in APEX and ${solutionIds.length} priced solution(s) were automatically prepared and emailed to the customer. An AirTreks consultant will follow up.`
-        : `Trip idea #${result.id} created in APEX. An AirTreks consultant will review your ${cities.length - 1}-leg itinerary and reach out within 1 business day.`,
+        ? `Trip request #${result.id} received by AirTreks — ${solutionIds.length} priced itinerary option(s) were automatically prepared and emailed to the customer. A travel consultant will follow up.`
+        : `Trip request #${result.id} received by AirTreks. A travel consultant will review your ${cities.length - 1}-leg itinerary and reach out within 1 business day.`,
       route: cities.map((c) => c.toUpperCase()).join(" -> "),
       viewTripUrl,
       viewTripUrlNote: viewTripUrl
-        ? "Share this link with the customer — it signs them straight into their AirTreks trip page to view solutions and prices."
+        ? "Share this link with the customer — it signs them straight into their trip on AirTreks Trip Planner to view itinerary options and prices."
         : undefined,
       autoSolutionsSent: solutionIds.length || undefined,
       consultant: "A consultant will be assigned based on route expertise and availability.",
@@ -263,12 +263,11 @@ export async function tripIdeaCreate(args: {
         flexibleDates: !!flexibleDates,
         recommended: analysis.recommended,
       },
-      apexUrl: result.id ? `https://kite.bootsnall.com/tripideas/${result.id}` : undefined,
     };
   } catch (err: any) {
     return {
       success: false,
-      error: `Failed to create trip idea: ${err.message}`,
+      error: `Couldn't submit the trip request: ${err.message}`,
       fallback: {
         message: "The automated system encountered an issue. Please submit your trip request directly.",
         route: cities.map((c) => c.toUpperCase()).join(" -> "),

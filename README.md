@@ -127,7 +127,7 @@ Those are honest ranges, not quotes - exact pricing on a 7-leg mixed-carrier iti
 
 | Tool | Description |
 |------|-------------|
-| `trip_idea_create` | Hand off to an AirTreks human consultant - creates a trip idea in APEX with the full routing analysis attached |
+| `trip_idea_create` | Hand off to an AirTreks human travel consultant - submits the trip request with the full routing analysis attached |
 
 Get a key: `POST https://mcp.airtreks.com/register` with `{"email": "you@example.com"}`
 

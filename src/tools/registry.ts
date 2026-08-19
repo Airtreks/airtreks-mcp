@@ -33,8 +33,8 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "trip_idea_create",
-    title: "Create a Trip Idea (Consultant Handoff)",
-    description: "Create a trip idea in AirTreks APEX system — hands off to a human consultant. Automatically runs plan_route to include full routing analysis, carrier recommendations, and consultant value assessment in the lead. The consultant starts informed, not cold. Use this when the customer is ready to get a real quote. Requires the customer's name, email, at least 2 cities (3-letter IATA codes), a departure date for every leg, and answers to AirTreks' planning questions — call once without questionsAnswers to receive the current questions to ask.",
+    title: "Submit a Trip Request (Consultant Handoff)",
+    description: "Submit the customer's trip to AirTreks — a human travel consultant takes over from there. Automatically runs plan_route to attach the full routing analysis and carrier recommendations to the trip request, so the consultant starts informed, not cold. Use this when the customer is ready to get a real quote. Requires the customer's name, email, at least 2 cities (3-letter IATA codes), a departure date for every leg, and answers to AirTreks' planning questions — call once without questionsAnswers to receive the current questions to ask.",
     schema: tripIdeaCreateSchema,
     fn: tripIdeaCreate,
     readOnly: false,
