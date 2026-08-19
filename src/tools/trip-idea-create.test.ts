@@ -7,6 +7,31 @@ import { join } from "node:path";
 process.env.DATA_DIR ||= mkdtempSync(join(tmpdir(), "airtreks-mcp-test-"));
 const { tripIdeaCreate } = await import("./trip-idea-create.js");
 const { recordSubmission } = await import("../lib/recent-submissions.js");
+const { setTripBackend } = await import("../lib/trip-backend.js");
+
+test("without an injected backend and no API key, forwarding explains how to register", async () => {
+  const { getTripBackend } = await import("../lib/trip-backend.js");
+  const saved = getTripBackend();
+  setTripBackend(null);
+  try {
+    delete process.env.AIRTREKS_API_KEY;
+    const result = await tripIdeaCreate({ email: "x@example.com", name: "X", cities: ["SFO", "NRT"], dates: ["2027-01-10"] });
+    assert.match(result.error!, /AirTreks API key/);
+    assert.match((result as any).register, /\/register/);
+  } finally {
+    setTripBackend(saved);
+  }
+});
+
+// The pipeline tests run against a fake backend: validation, questionnaire,
+// and dedupe all happen before any backend call; isConfigured=false stops the
+// flow at the connectivity check without network.
+setTripBackend({
+  isConfigured: () => false,
+  createTripIdea: async () => { throw new Error("not reachable in tests"); },
+  getPlanningQuestions: async () => [],
+  getTripLink: async () => null,
+});
 
 const QUESTIONS = [
   { name: "confidence", question: "How confident do you feel booking flights for this trip?", options: ["For sure", "50/50", "Dreaming/Not Confident"] },

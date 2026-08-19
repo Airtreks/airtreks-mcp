@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isConfigured, createTripIdea, getTripIdeaMagicLink } from "../lib/apex-client.js";
+import { getTripBackend, forwardTripRequest } from "../lib/trip-backend.js";
 import { findRecentSubmission, recordSubmission } from "../lib/recent-submissions.js";
 import { getQuestionsCached } from "../lib/tp-questions.js";
 import { planRoute } from "./plan-route.js";
@@ -25,7 +25,7 @@ export const tripIdeaCreateSchema = {
   // Agent context — what the AI agent learned during the conversation
   agentContext: z.string().optional().describe("Summary of what the AI agent learned about this trip (auto-generated routing analysis, customer preferences discussed, etc.)"),
 
-  // The Trip Planner questionnaire — dynamic, served by APEX (AIR-786)
+  // The Trip Planner questionnaire — dynamic, served by the backend (AIR-786)
   questionsAnswers: z.union([z.record(z.string(), z.string()), z.string()]).optional().describe("The customer's answers to AirTreks' planning questions, keyed by question name (e.g. {\"guidance\": \"I want expert guidance from humans\"}). A JSON-encoded string of the same object is also accepted. Required, but don't guess the questions: call once without this — the response lists the current questions and their options to ask the customer."),
 };
 
@@ -44,6 +44,13 @@ export async function tripIdeaCreate(args: {
   agentContext?: string;
   questionsAnswers?: Record<string, string> | string;
 }) {
+  // Public-package mode (AIR-803): no backend injected — relay the call to
+  // the hosted API, which runs this same pipeline server-side.
+  const backend = getTripBackend();
+  if (!backend) {
+    return forwardTripRequest(args);
+  }
+
   const {
     email, name, phone,
     cities, dates, passengers = 1, cabin = "economy", budget,
@@ -51,8 +58,8 @@ export async function tripIdeaCreate(args: {
   } = args;
 
   // A lead is only created once all needed information exists (AIR-786).
-  // The required set mirrors APEX's TripIdea::$mandatory (route, pax_no,
-  // departure_date, people_id) — a drift-guard test in the apex repo pins it.
+  // The required set mirrors the backend's mandatory lead fields (route,
+  // pax count, departure date, contact) — a drift-guard test backend-side pins it.
   // Report everything that's missing in one pass so the agent can collect it
   // in a single follow-up instead of failing field by field.
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -66,8 +73,8 @@ export async function tripIdeaCreate(args: {
   else if (dates?.some((d) => !ISO_DATE.test(d))) missing.push("every date in ISO format (YYYY-MM-DD)");
 
   // The Trip Planner questionnaire (Sean, AIR-786: same questions as the TP
-  // form). Live from APEX — never hardcoded, so edits in TP admin apply here
-  // without a redeploy. If APEX can't serve them and no cache exists, the
+  // form). Fetched live — never hardcoded, so edits in TP admin apply here
+  // without a redeploy. If the backend can't serve them and no cache exists, the
   // requirement is skipped: a lead without answers beats no lead.
   const tpQuestions = await getQuestionsCached();
   // Clients that cached the tool schema before questionsAnswers existed pass
@@ -113,7 +120,7 @@ export async function tripIdeaCreate(args: {
     questionsAnswersPayload[q.question] = [canonical];
   }
 
-  // APEX's add-from-indie dedupes only by Trip Planner trip id, which MCP
+  // The backend does not dedupe requests submitted this way, which MCP
   // leads never carry — guard against AI-agent retries creating duplicates.
   const recent = findRecentSubmission(email, cities);
   if (recent) {
@@ -123,12 +130,12 @@ export async function tripIdeaCreate(args: {
       tripIdeaId: recent.tripIdeaId,
       message: `This trip was already submitted as trip request #${recent.tripIdeaId} — an AirTreks travel consultant already has it. No new request was created.`,
       route: cities.map((c) => c.toUpperCase()).join(" -> "),
-      viewTripUrl: await getTripIdeaMagicLink(recent.tripIdeaId).catch(() => null),
+      viewTripUrl: await backend.getTripLink(recent.tripIdeaId).catch(() => null),
     };
   }
 
-  // Check APEX connectivity
-  if (!isConfigured()) {
+  // Check backend connectivity
+  if (!backend.isConfigured()) {
     return {
       error: "AirTreks' trip submission service isn't available right now, so the trip request couldn't be created automatically.",
       fallback: {
@@ -215,7 +222,7 @@ export async function tripIdeaCreate(args: {
   const lastName = nameParts.slice(1).join(" ") || "";
 
   try {
-    const result = await createTripIdea({
+    const result = await backend.createTripIdea({
       firstName,
       lastName,
       email,
@@ -236,7 +243,7 @@ export async function tripIdeaCreate(args: {
 
     // Accounts auto-login link into the customer's Trip Planner trip —
     // best-effort, the lead exists either way.
-    const viewTripUrl = result.id ? await getTripIdeaMagicLink(result.id).catch(() => null) : null;
+    const viewTripUrl = result.id ? await backend.getTripLink(result.id).catch(() => null) : null;
 
     return {
       success: true,
