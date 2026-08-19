@@ -142,11 +142,10 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     origin: "airtreks-mcp",
     ref: "",
     source: 0,
-    passengers: Array.from({ length: passengers }, (_, i) => ({
-      first_name: i === 0 ? firstName : `Passenger ${i + 1}`,
-      last_name: i === 0 ? lastName : "",
-      gender: "",
-    })),
+    // Only the primary passenger — APEX derives pax_no from passengers_number,
+    // and placeholder companions crash the insert (people.last_name is NOT NULL
+    // and Laravel nulls empty strings). Consultants add real names later.
+    passengers: [{ first_name: firstName, last_name: lastName, gender: "" }],
   };
 
   const result = await post("/tripideas/add-from-indie", payload);
