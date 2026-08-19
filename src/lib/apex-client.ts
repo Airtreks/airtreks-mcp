@@ -122,7 +122,8 @@ export interface CreateTripIdeaOpts {
   questionsAnswers?: Record<string, string[]>;
 }
 
-export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: number | string; raw: any }> {
+/** Exported for tests — the add-from-indie payload, pure of any network. */
+export function buildTripIdeaPayload(opts: CreateTripIdeaOpts): Record<string, unknown> {
   const {
     firstName = "",
     lastName = "",
@@ -133,16 +134,18 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     passengers = 1,
     cabin = "economy",
     notes = "",
-    flexibleDates = false,
     questionsAnswers,
   } = opts;
 
-  // Build citylist in APEX format
+  // APEX composes the route as startcity + citylist + endcity
+  // (TripIdea::getLeadFromIndieData), so citylist carries ONLY the
+  // intermediate stops — including the first/last here duplicates them in the
+  // date list and creates a start->start segment that pricing rejects
+  // (Amadeus 925 "overlapping origin/destination").
   const citylist = [];
-  for (let i = 0; i < stops.length - 1; i++) {
+  for (let i = 1; i < stops.length - 1; i++) {
     citylist.push({ city: stops[i], departure_date: dates[i] || null });
   }
-  citylist.push({ city: stops[stops.length - 1], departure_date: null });
 
   const serviceclass = cabin === "business" ? 2 : 1;
   const route = stops.join("-");
@@ -174,7 +177,11 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     payload.questions_answers = questionsAnswers;
   }
 
-  const result = await post("/tripideas/add-from-indie", payload);
+  return payload;
+}
+
+export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: number | string; raw: any }> {
+  const result = await post("/tripideas/add-from-indie", buildTripIdeaPayload(opts));
   const id = result.data?.trip_idea?.id || result.data?.[0] || result.id;
   return { id, raw: result };
 }
