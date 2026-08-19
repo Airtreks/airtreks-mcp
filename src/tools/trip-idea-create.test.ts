@@ -88,3 +88,29 @@ test("a recently submitted email+route returns the existing trip idea instead of
   assert.equal((result as any).duplicate, true);
   assert.equal(result.tripIdeaId, 777);
 });
+
+test("accepts questionsAnswers as a JSON string (stale-schema clients)", async () => {
+  recordSubmission("stale@example.com", ["OTP", "MAD", "OTP"], 888);
+  const result = await tripIdeaCreate({
+    email: "stale@example.com",
+    name: "Stale Schema",
+    cities: ["OTP", "MAD", "OTP"],
+    dates: ["2027-03-04", "2027-03-08"],
+    questionsAnswers: JSON.stringify(VALID_ANSWERS),
+  });
+  // validation passed (answers accepted) — the dedupe hit proves we got past it
+  assert.equal((result as any).duplicate, true);
+  assert.equal(result.tripIdeaId, 888);
+});
+
+test("an unparseable questionsAnswers string is treated as unanswered, not a crash", async () => {
+  const result = await tripIdeaCreate({
+    email: "garbled@example.com",
+    name: "Garbled",
+    cities: ["OTP", "MAD"],
+    dates: ["2027-03-04"],
+    questionsAnswers: "guidance: humans please",
+  });
+  assert.match(result.error!, /planning questions/);
+  assert.equal((result as any).questions.length, 2);
+});
