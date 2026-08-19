@@ -1,12 +1,27 @@
 /**
- * Simple JSON file store on persistent volume.
- * Reads/writes to /data/ (Railway volume) or ./data/ (local dev).
+ * Simple JSON file store.
+ * Reads/writes to DATA_DIR, /data/ (Railway volume), or ~/.airtreks-mcp/
+ * (stdio/npx installs, where /data isn't creatable).
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
 
-const DATA_DIR = process.env.DATA_DIR || "/data";
+// /data is the Railway volume; npx/stdio users can't create it, and the
+// EACCES from mkdir crashed the server at import (AIR-801). Fall back to a
+// per-user directory.
+function resolveDataDir(): string {
+  if (process.env.DATA_DIR) return process.env.DATA_DIR;
+  try {
+    mkdirSync("/data", { recursive: true });
+    return "/data";
+  } catch {
+    return join(homedir(), ".airtreks-mcp");
+  }
+}
+
+const DATA_DIR = resolveDataDir();
 
 function ensureDir() {
   if (!existsSync(DATA_DIR)) {

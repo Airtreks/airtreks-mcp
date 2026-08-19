@@ -11,6 +11,11 @@ import { fileURLToPath } from "node:url";
 import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
 import { matchPlatform, refreshOpenAIRanges } from "./lib/cidr.js";
 import { PRIVACY_HTML } from "./privacy.js";
+
+// Single version source: package.json (works from both src/ via tsx and dist/).
+const PKG_VERSION: string = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf-8")
+).version || "0.0.0";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
 import { lookupKey, registerKey, listKeys, revokeKey, revokeKeysByEmail } from "./lib/api-keys.js";
 import { TOOLS, normalizeCityArgs } from "./tools/registry.js";
@@ -63,7 +68,7 @@ function registerTools(server: McpServer, includeLeadTools = false) {
 // --- Stdio mode (local / Claude Code) ---
 
 async function startStdio() {
-  const server = new McpServer({ name: "airtreks", version: "1.0.0" });
+  const server = new McpServer({ name: "airtreks", version: PKG_VERSION });
   registerTools(server, true); // local dev gets all tools
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -95,7 +100,7 @@ async function startHttp() {
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => sid,
     });
-    const mcpServer = new McpServer({ name: "airtreks", version: "1.0.0" });
+    const mcpServer = new McpServer({ name: "airtreks", version: PKG_VERSION });
     registerTools(mcpServer, hasApiKey);
 
     transport.onclose = () => sessions.delete(sid);
@@ -110,7 +115,7 @@ async function startHttp() {
     // Health check
     if (url.pathname === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", server: "airtreks-mcp", version: "1.0.0", sessions: sessions.size, rateLimit: "100/day per IP" }));
+      res.end(JSON.stringify({ status: "ok", server: "airtreks-mcp", version: PKG_VERSION, sessions: sessions.size, rateLimit: "100/day per IP" }));
       return;
     }
 
@@ -293,7 +298,7 @@ async function startHttp() {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         name: "AirTreks MCP Server",
-        version: "1.0.0",
+        version: PKG_VERSION,
         description: "Complex flight routing intelligence for AI agents",
         mcp_endpoint: "/mcp",
         rest_api: "POST /api/{tool} with a JSON body of tool arguments",
