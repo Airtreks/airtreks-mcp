@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { isConfigured, createTripIdea } from "../lib/apex-client.js";
+import { findRecentSubmission, recordSubmission } from "../lib/recent-submissions.js";
 import { planRoute } from "./plan-route.js";
 
 export const tripIdeaCreateSchema = {
   // Customer info
   email: z.string().describe("Customer email address (required)"),
-  name: z.string().optional().describe("Customer full name"),
+  name: z.string().describe("Customer full name (required — the consultant contacts them by name)"),
   phone: z.string().optional().describe("Customer phone number"),
 
   // Trip details
@@ -26,7 +27,7 @@ export const tripIdeaCreateSchema = {
 
 export async function tripIdeaCreate(args: {
   email: string;
-  name?: string;
+  name: string;
   phone?: string;
   cities: string[];
   dates?: string[];
@@ -44,8 +45,31 @@ export async function tripIdeaCreate(args: {
     flexibleDates, preferences, notes, agentContext,
   } = args;
 
-  if (cities.length < 2) {
-    return { error: "Need at least 2 cities to create a trip idea." };
+  // A lead is only created once all needed information exists (AIR-786).
+  // Report everything that's missing in one pass so the agent can collect it
+  // in a single follow-up instead of failing field by field.
+  const missing: string[] = [];
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) missing.push("a valid customer email address");
+  if (!name || !name.trim()) missing.push("the customer's full name");
+  if (!cities || cities.length < 2) missing.push("at least 2 cities (ordered route)");
+  if (missing.length) {
+    return {
+      error: `Cannot create the trip idea yet — still needed: ${missing.join("; ")}.`,
+      hint: "Ask the customer for the missing details, then call trip_idea_create again.",
+    };
+  }
+
+  // APEX's add-from-indie dedupes only by Trip Planner trip id, which MCP
+  // leads never carry — guard against AI-agent retries creating duplicates.
+  const recent = findRecentSubmission(email, cities);
+  if (recent) {
+    return {
+      success: true,
+      duplicate: true,
+      tripIdeaId: recent.tripIdeaId,
+      message: `This trip was already submitted as trip idea #${recent.tripIdeaId} — an AirTreks consultant already has it. No new request was created.`,
+      route: cities.map((c) => c.toUpperCase()).join(" -> "),
+    };
   }
 
   // Check APEX connectivity
@@ -148,6 +172,8 @@ export async function tripIdeaCreate(args: {
       notes: noteLines.join("\n"),
       flexibleDates,
     });
+
+    if (result.id) recordSubmission(email, cities, result.id);
 
     return {
       success: true,
