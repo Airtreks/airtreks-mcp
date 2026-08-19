@@ -1,6 +1,6 @@
 /**
  * The Trip Planner planning questionnaire (confidence / guidance / priority...),
- * fetched from APEX's api/tripideas/tp-questions (which proxies Trip Planner,
+ * fetched from APEX's api/tpquestions/list (which proxies Trip Planner,
  * the source of truth — editable in TP admin, no MCP redeploy needed).
  *
  * Cached on the persistent volume with a 6h TTL, stale-if-error: a fetch
