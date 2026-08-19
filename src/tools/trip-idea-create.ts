@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isConfigured, createTripIdea } from "../lib/apex-client.js";
 import { findRecentSubmission, recordSubmission } from "../lib/recent-submissions.js";
+import { getQuestionsCached } from "../lib/tp-questions.js";
 import { planRoute } from "./plan-route.js";
 
 export const tripIdeaCreateSchema = {
@@ -11,7 +12,7 @@ export const tripIdeaCreateSchema = {
 
   // Trip details
   cities: z.array(z.string()).describe("Ordered list of 3-letter IATA city/airport codes (e.g. ['SFO', 'NRT', 'BKK'])"),
-  dates: z.array(z.string()).min(1).describe("Departure dates for each leg (ISO format, e.g. '2026-09-15'). At least the first — the trip departure date — is required; APEX cannot create a lead without it. If the customer is unsure, use their best estimate and set flexibleDates."),
+  dates: z.array(z.string()).min(1).describe("Departure dates, one per leg (ISO format, e.g. '2026-09-15') — a trip with N cities needs N-1 dates, all required. If the customer is unsure, use their best estimates and set flexibleDates."),
   passengers: z.number().optional().describe("Number of passengers (default 1)"),
   cabin: z.enum(["economy", "premium", "business"]).optional().describe("Cabin class preference"),
   budget: z.enum(["budget", "mid", "premium", "business"]).optional().describe("Budget tier"),
@@ -23,6 +24,9 @@ export const tripIdeaCreateSchema = {
 
   // Agent context — what the AI agent learned during the conversation
   agentContext: z.string().optional().describe("Summary of what the AI agent learned about this trip (auto-generated routing analysis, customer preferences discussed, etc.)"),
+
+  // The Trip Planner questionnaire — dynamic, served by APEX (AIR-786)
+  questionsAnswers: z.record(z.string(), z.string()).optional().describe("The customer's answers to AirTreks' planning questions, keyed by question name (e.g. {\"guidance\": \"I want expert guidance from humans\"}). Required, but don't guess the questions: call once without this — the response lists the current questions and their options to ask the customer."),
 };
 
 export async function tripIdeaCreate(args: {
@@ -38,11 +42,12 @@ export async function tripIdeaCreate(args: {
   preferences?: string[];
   notes?: string;
   agentContext?: string;
+  questionsAnswers?: Record<string, string>;
 }) {
   const {
     email, name, phone,
     cities, dates, passengers = 1, cabin = "economy", budget,
-    flexibleDates, preferences, notes, agentContext,
+    flexibleDates, preferences, notes, agentContext, questionsAnswers,
   } = args;
 
   // A lead is only created once all needed information exists (AIR-786).
@@ -56,13 +61,41 @@ export async function tripIdeaCreate(args: {
   if (!name || !name.trim()) missing.push("the customer's full name");
   if (!cities || cities.length < 2) missing.push("at least 2 cities (ordered route)");
   else if (cities.some((c) => !/^[A-Za-z]{3}$/.test(c.trim()))) missing.push("3-letter IATA codes for every city (e.g. 'SFO', not 'San Francisco')");
-  if (!dates?.length || !ISO_DATE.test(dates[0] ?? "")) missing.push("the trip departure date as dates[0] (ISO format, e.g. '2026-09-15'; use the customer's best estimate plus flexibleDates if unsure)");
-  else if (dates.some((d) => !ISO_DATE.test(d))) missing.push("every date in ISO format (YYYY-MM-DD)");
+  const legs = cities && cities.length >= 2 ? cities.length - 1 : 0;
+  if (legs && (!dates || dates.length < legs)) missing.push(`a departure date for every leg — ${legs} dates for ${cities.length} cities (ISO format, e.g. '2026-09-15'; use the customer's best estimates plus flexibleDates if unsure)`);
+  else if (dates?.some((d) => !ISO_DATE.test(d))) missing.push("every date in ISO format (YYYY-MM-DD)");
+
+  // The Trip Planner questionnaire (Sean, AIR-786: same questions as the TP
+  // form). Live from APEX — never hardcoded, so edits in TP admin apply here
+  // without a redeploy. If APEX can't serve them and no cache exists, the
+  // requirement is skipped: a lead without answers beats no lead.
+  const tpQuestions = await getQuestionsCached();
+  const answers = questionsAnswers ?? {};
+  const unanswered = tpQuestions.filter((q) => {
+    const a = answers[q.name]?.trim();
+    if (!a) return true;
+    return q.options.length > 0 && !q.options.some((o) => o.trim().toLowerCase() === a.toLowerCase());
+  });
+  if (unanswered.length) missing.push("the customer's answers to the planning questions (see 'questions' — resubmit with questionsAnswers keyed by question name, using one of each question's options)");
+
   if (missing.length) {
     return {
       error: `Cannot create the trip idea yet — still needed: ${missing.join("; ")}.`,
+      questions: unanswered.length
+        ? unanswered.map((q) => ({ name: q.name, question: q.question, options: q.options }))
+        : undefined,
       hint: "Ask the customer for the missing details, then call trip_idea_create again.",
     };
+  }
+
+  // Map name-keyed answers to the add-from-indie wire format: question text ->
+  // [answer], with the option's canonical casing (Triggers and the automation
+  // gate match on exact question text).
+  const questionsAnswersPayload: Record<string, string[]> = {};
+  for (const q of tpQuestions) {
+    const a = answers[q.name]!.trim();
+    const canonical = q.options.find((o) => o.trim().toLowerCase() === a.toLowerCase()) ?? a;
+    questionsAnswersPayload[q.question] = [canonical];
   }
 
   // APEX's add-from-indie dedupes only by Trip Planner trip id, which MCP
@@ -177,6 +210,7 @@ export async function tripIdeaCreate(args: {
       cabin,
       notes: noteLines.join("\n"),
       flexibleDates,
+      questionsAnswers: questionsAnswersPayload,
     });
 
     if (result.id) recordSubmission(email, cities, result.id);

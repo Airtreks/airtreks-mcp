@@ -88,6 +88,25 @@ async function post(endpoint: string, body: Record<string, unknown>): Promise<an
   return data;
 }
 
+export interface TpQuestion {
+  name: string;
+  question: string;
+  options: string[];
+}
+
+/** The Trip Planner questionnaire, proxied by APEX (api/tripideas/tp-questions, AIR-786). */
+export async function getTpQuestions(): Promise<TpQuestion[]> {
+  const result = await post("/tripideas/tp-questions", {});
+  const list = Array.isArray(result?.questions) ? result.questions : [];
+  return list
+    .filter((q: any) => q?.name && q?.question)
+    .map((q: any) => ({
+      name: String(q.name),
+      question: String(q.question),
+      options: Array.isArray(q.options) ? q.options.map(String) : [],
+    }));
+}
+
 export interface CreateTripIdeaOpts {
   firstName: string;
   lastName: string;
@@ -99,6 +118,8 @@ export interface CreateTripIdeaOpts {
   cabin?: string;
   notes?: string;
   flexibleDates?: boolean;
+  /** Question text -> [answer], the add-from-indie questions_answers format. */
+  questionsAnswers?: Record<string, string[]>;
 }
 
 export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: number | string; raw: any }> {
@@ -113,6 +134,7 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     cabin = "economy",
     notes = "",
     flexibleDates = false,
+    questionsAnswers,
   } = opts;
 
   // Build citylist in APEX format
@@ -147,6 +169,10 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     // and Laravel nulls empty strings). Consultants add real names later.
     passengers: [{ first_name: firstName, last_name: lastName, gender: "" }],
   };
+
+  if (questionsAnswers && Object.keys(questionsAnswers).length) {
+    payload.questions_answers = questionsAnswers;
+  }
 
   const result = await post("/tripideas/add-from-indie", payload);
   const id = result.data?.trip_idea?.id || result.data?.[0] || result.id;
