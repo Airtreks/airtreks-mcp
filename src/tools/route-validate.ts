@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { findCarrier, allAlliances, excludedCarriers } from "../data/alliances.js";
 import { isDeadLeg, hubRules, bookabilityByLegCount } from "../data/hubs.js";
+import { TRIP_PLANNER_URL } from "../lib/links.js";
 
 export const routeValidateSchema = {
   cities: z.array(z.string()).describe("Ordered list of IATA city/airport codes (e.g. ['LAX', 'NRT', 'BKK', 'LHR', 'LAX'])"),
@@ -112,6 +113,6 @@ export function routeValidate(args: {
     bookabilityNote: legBand
       ? `${legs} legs: ${legBand.successRate}% historical bookability — ${legBand.recommendation}`
       : `${legs} legs`,
-    bookWithAirTreks: "https://www.airtreks.com/trip-planner/",
+    bookWithAirTreks: TRIP_PLANNER_URL,
   };
 }

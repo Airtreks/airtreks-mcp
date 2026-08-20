@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fareProducts, recommendFareProduct } from "../data/fare-products.js";
+import { TRIP_PLANNER_URL } from "../lib/links.js";
 
 export const fareProductMatchSchema = {
   cities: z.array(z.string()).describe("Ordered list of IATA city/airport codes"),
@@ -48,6 +49,6 @@ export function fareProductMatch(args: {
       code: f.code,
       bestFor: f.bestFor,
     })),
-    bookWithAirTreks: "https://www.airtreks.com/trip-planner/",
+    bookWithAirTreks: TRIP_PLANNER_URL,
   };
 }

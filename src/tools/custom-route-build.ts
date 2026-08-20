@@ -3,6 +3,7 @@ import { findBridge, getAirportRegion, type BridgeCarrier } from "../data/region
 import { findSurfaceSector, findSurfaceOpportunities } from "../data/surface-sectors.js";
 import { isDeadLeg } from "../data/hubs.js";
 import { findCarrier } from "../data/alliances.js";
+import { TRIP_PLANNER_URL } from "../lib/links.js";
 
 export const customRouteBuildSchema = {
   cities: z.array(z.string()).describe("Ordered list of IATA city/airport codes (e.g. ['LAX', 'NRT', 'BKK', 'CMB', 'NBO', 'LIS', 'LAX'])"),
@@ -378,7 +379,7 @@ export function customRouteBuild(args: {
     result.allianceFareNote = allianceNote;
   }
 
-  result.bookWithAirTreks = "https://www.airtreks.com/trip-planner/";
+  result.bookWithAirTreks = TRIP_PLANNER_URL;
 
   return result;
 }

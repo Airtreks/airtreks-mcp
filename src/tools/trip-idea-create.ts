@@ -3,6 +3,7 @@ import { getTripBackend, forwardTripRequest } from "../lib/trip-backend.js";
 import { findRecentSubmission, recordSubmission } from "../lib/recent-submissions.js";
 import { getQuestionsCached } from "../lib/tp-questions.js";
 import { planRoute } from "./plan-route.js";
+import { TRIP_PLANNER_URL } from "../lib/links.js";
 
 export const tripIdeaCreateSchema = {
   // Customer info
@@ -141,7 +142,7 @@ export async function tripIdeaCreate(args: {
       fallback: {
         message: "Please submit your trip request directly at the link below. Include your route and travel dates.",
         route: cities.map((c) => c.toUpperCase()).join(" -> "),
-        bookWithAirTreks: "https://www.airtreks.com/trip-planner/",
+        bookWithAirTreks: TRIP_PLANNER_URL,
       },
     };
   }
@@ -278,7 +279,7 @@ export async function tripIdeaCreate(args: {
       fallback: {
         message: "The automated system encountered an issue. Please submit your trip request directly.",
         route: cities.map((c) => c.toUpperCase()).join(" -> "),
-        bookWithAirTreks: "https://www.airtreks.com/trip-planner/",
+        bookWithAirTreks: TRIP_PLANNER_URL,
       },
     };
   }
