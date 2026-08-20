@@ -8,6 +8,7 @@ import { customRouteBuildSchema, customRouteBuild } from "./custom-route-build.j
 import { planRouteSchema, planRoute } from "./plan-route.js";
 import { tripIdeaCreateSchema, tripIdeaCreate } from "./trip-idea-create.js";
 import { routeEstimateSchema, routeEstimate } from "./route-estimate.js";
+import { fareQuoteSchema, fareQuote } from "./fare-quote.js";
 
 // Single source of truth for both transports: MCP registration (index.ts)
 // and the parallel REST surface + OpenAPI spec (rest.ts, AIR-461).
@@ -47,6 +48,15 @@ export const TOOLS: ToolDef[] = [
     description: "Get a price range for a multi-city or round-the-world trip, drawn from what AirTreks customers have actually paid on those routes. Give it the cities and it returns a per-person range in USD with how much history sits behind it. Use it when someone asks what a trip will cost and you don't have exact dates yet — it needs no dates and no passenger details. It is a range from past bookings, not a live quote, so it will not reflect today's availability or seasonality; it tells you the right ballpark before anyone commits to dates.",
     schema: routeEstimateSchema,
     fn: routeEstimate,
+    readOnly: true,
+    requiresKey: false,
+  },
+  {
+    name: "fare_quote",
+    title: "Price a Specific Itinerary with Live Fares",
+    description: "Get live, bookable-quality fares for one specific itinerary — actual flights, actual prices, for the dates given. Needs a departure date for every flown leg. Use this once the customer has settled on cities and dates and wants real numbers rather than a ballpark; use route_estimate instead when dates are still open. It prices the itinerary as a single fare, so very long or awkward multi-continent trips may come back unpriceable — those genuinely need to be split across separate tickets, which is what AirTreks consultants do by hand.",
+    schema: fareQuoteSchema,
+    fn: fareQuote,
     readOnly: true,
     requiresKey: false,
   },
