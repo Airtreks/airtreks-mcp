@@ -28,6 +28,10 @@ const stub: PricingBackend = {
     options: [],
     cached: false,
   }),
+  startItineraryQuote: async () => {
+    throw new Error("not used");
+  },
+  getItineraryQuote: async () => ({ status: "unknown" as const }),
 };
 
 test("no backend is registered by default", () => {

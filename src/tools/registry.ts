@@ -27,8 +27,12 @@ export interface ToolDef {
    * Upstream searches one call costs us. 0 for the bundled-data tools and for
    * anything answered from recorded history; >0 only where a call reaches a
    * paid provider. Drives the spend ledger and the CORS policy below.
+   *
+   * A function when the cost depends on the request — a multi-stop itinerary
+   * fans out across many searches, so charging it as one call would let the
+   * most expensive tool draw the least budget.
    */
-  upstreamCost?: number;
+  upstreamCost?: number | ((args: any) => number);
 }
 
 const RAW_TOOLS: ToolDef[] = [
@@ -128,7 +132,22 @@ export function normalizeCityArgs(args: any): any {
 
 /** True for tools where one call reaches a paid provider. */
 export function costsUpstream(tool: ToolDef): boolean {
+  if (typeof tool.upstreamCost === "function") return true;
   return (tool.upstreamCost ?? 0) > 0;
+}
+
+/** Searches to charge for this specific call. */
+export function upstreamCostOf(tool: ToolDef, args: unknown): number {
+  const cost = tool.upstreamCost;
+  if (typeof cost === "function") {
+    try {
+      return Math.max(1, Math.trunc(cost(args)));
+    } catch {
+      // A cost function that throws must not become a free call.
+      return 1;
+    }
+  }
+  return cost ?? 0;
 }
 
 /**
@@ -139,14 +158,13 @@ export function costsUpstream(tool: ToolDef): boolean {
  * this is the one place that covers both, and a new transport inherits it.
  */
 function withBudget(tool: ToolDef): ToolDef {
-  const cost = tool.upstreamCost ?? 0;
-  if (cost <= 0) return tool;
+  if (!costsUpstream(tool)) return tool;
 
   const inner = tool.fn;
   return {
     ...tool,
     fn: async (args: any) => {
-      const verdict = chargeSpend(cost);
+      const verdict = chargeSpend(upstreamCostOf(tool, args));
       if (!verdict.allowed) {
         // Not an error: the agent should fall back, not retry. Say what to do.
         return {

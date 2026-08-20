@@ -46,6 +46,10 @@ function backend(result: FareQuoteResult | Error, configured = true): PricingBac
       if (result instanceof Error) throw result;
       return result;
     },
+    startItineraryQuote: async () => {
+      throw new Error("not used");
+    },
+    getItineraryQuote: async () => ({ status: "unknown" as const }),
   };
 }
 

@@ -120,6 +120,57 @@ export interface FareQuoteResult {
 }
 
 // ---------------------------------------------------------------------------
+// Itinerary quote — a multi-stop trip priced across several tickets, async.
+// ---------------------------------------------------------------------------
+
+export interface ItineraryQuoteOpts {
+  /** IATA codes in travel order. "000" marks the preceding leg as overland. */
+  route: string[];
+  /** YYYY-MM-DD, one per flown leg, in the same order. */
+  dates: string[];
+  passengers?: Passengers;
+  cabin?: Cabin;
+}
+
+/**
+ * One way of ticketing the trip. A multi-stop itinerary is usually cheaper split
+ * across several tickets than bought as one fare, and the splits differ in price,
+ * duration and stops — so each option is a genuine alternative, not a variant.
+ */
+export interface ItineraryOption {
+  /** What this way of splitting optimises for, in plain terms. */
+  bestFor: string;
+  total: number | null;
+  currency: string;
+  perPassengerType: PricePerPassengerType[];
+  /** The separately-priced tickets this option is built from. */
+  tickets: {
+    covers: string;
+    total: number | null;
+    legs: QuotedLeg[];
+    baggage: string | null;
+  }[];
+  durationMinutes?: number;
+  stops: number;
+}
+
+export type QuoteJobStatus = "pending" | "ready" | "failed" | "unknown";
+
+export interface QuoteJobState {
+  status: QuoteJobStatus;
+  /** Seconds to wait before asking again. Only meaningful while pending. */
+  retryAfterSeconds?: number;
+  route?: string;
+  cabin?: Cabin;
+  currency?: string;
+  options?: ItineraryOption[];
+  /** Route segments that could not be priced at all. */
+  unpriced?: string[];
+  /** Safe to show a customer. Set on failure, or when nothing could be priced. */
+  message?: string;
+}
+
+// ---------------------------------------------------------------------------
 // The seam
 // ---------------------------------------------------------------------------
 
@@ -130,6 +181,22 @@ export interface PricingBackend {
   estimateRoute(opts: EstimateOpts): Promise<EstimateResult>;
   /** Live price for one specific itinerary. */
   quoteFare(opts: FareQuoteOpts): Promise<FareQuoteResult>;
+  /**
+   * Begin pricing a multi-stop trip. Returns immediately with a handle.
+   *
+   * Async because this is the slow one: the upstream fans out across many
+   * provider searches and takes tens of seconds, which does not survive an MCP
+   * client's patience.
+   *
+   * The handle is the capability. It must be unguessable and is the only thing
+   * that can read the result — there is no separate ownership check, because a
+   * tool has no access to caller identity. A handle derived from the request
+   * (a hash of the arguments, say) would let anyone who could guess the question
+   * read someone else's paid answer, so it must be random.
+   */
+  startItineraryQuote(opts: ItineraryQuoteOpts): Promise<{ handle: string; retryAfterSeconds: number }>;
+  /** Read a job by its handle. Unknown or expired handles report "unknown". */
+  getItineraryQuote(handle: string): Promise<QuoteJobState>;
 }
 
 let backend: PricingBackend | null = null;
