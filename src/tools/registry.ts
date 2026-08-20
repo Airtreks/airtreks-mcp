@@ -7,6 +7,7 @@ import { fareProductMatchSchema, fareProductMatch } from "./fare-product-match.j
 import { customRouteBuildSchema, customRouteBuild } from "./custom-route-build.js";
 import { planRouteSchema, planRoute } from "./plan-route.js";
 import { tripIdeaCreateSchema, tripIdeaCreate } from "./trip-idea-create.js";
+import { routeEstimateSchema, routeEstimate } from "./route-estimate.js";
 
 // Single source of truth for both transports: MCP registration (index.ts)
 // and the parallel REST surface + OpenAPI spec (rest.ts, AIR-461).
@@ -39,6 +40,15 @@ export const TOOLS: ToolDef[] = [
     fn: tripIdeaCreate,
     readOnly: false,
     requiresKey: true,
+  },
+  {
+    name: "route_estimate",
+    title: "Estimate the Price of a Multi-City Route",
+    description: "Get a price range for a multi-city or round-the-world trip, drawn from what AirTreks customers have actually paid on those routes. Give it the cities and it returns a per-person range in USD with how much history sits behind it. Use it when someone asks what a trip will cost and you don't have exact dates yet — it needs no dates and no passenger details. It is a range from past bookings, not a live quote, so it will not reflect today's availability or seasonality; it tells you the right ballpark before anyone commits to dates.",
+    schema: routeEstimateSchema,
+    fn: routeEstimate,
+    readOnly: true,
+    requiresKey: false,
   },
   {
     name: "route_validate",
