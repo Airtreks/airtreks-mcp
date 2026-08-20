@@ -3,7 +3,7 @@ import { IncomingMessage, ServerResponse } from "node:http";
 import { TOOLS, normalizeCityArgs } from "./tools/registry.js";
 import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
 import { matchPlatform } from "./lib/cidr.js";
-import { lookupKey } from "./lib/api-keys.js";
+import { lookupKey, apiKeyFromRequest } from "./lib/api-keys.js";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit } from "./lib/stats.js";
 
 // Parallel REST surface for the MCP tools (AIR-461). Many agent frameworks
@@ -163,7 +163,7 @@ export async function handleRest(req: IncomingMessage, res: ServerResponse, url:
   }
 
   // Auth + rate limiting — same buckets and limits as the /mcp transport
-  const apiKey = (req.headers["x-api-key"] as string) || "";
+  const apiKey = apiKeyFromRequest(req.headers as Record<string, unknown>, url);
   const keyRecord = apiKey ? lookupKey(apiKey) : null;
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
     || req.socket.remoteAddress || "unknown";

@@ -17,7 +17,7 @@ const PKG_VERSION: string = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf-8")
 ).version || "0.0.0";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
-import { lookupKey, registerKey, listKeys, revokeKey, revokeKeysByEmail } from "./lib/api-keys.js";
+import { lookupKey, registerKey, listKeys, revokeKey, revokeKeysByEmail, apiKeyFromRequest } from "./lib/api-keys.js";
 import { TOOLS, normalizeCityArgs } from "./tools/registry.js";
 import { handleRest } from "./rest.js";
 
@@ -213,7 +213,7 @@ async function startHttp() {
 
       // Auth + rate limiting on POST requests
       if (req.method === "POST") {
-        const apiKey = req.headers["x-api-key"] as string || "";
+        const apiKey = apiKeyFromRequest(req.headers as Record<string, unknown>, url);
         const keyRecord = apiKey ? lookupKey(apiKey) : null;
         const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
           || req.socket.remoteAddress || "unknown";
@@ -258,7 +258,10 @@ async function startHttp() {
 
       // New session (POST without session ID = initialization)
       if (req.method === "POST" && !sessionId) {
-        const hasKey = !!(req.headers["x-api-key"] && lookupKey(req.headers["x-api-key"] as string));
+        // Tool visibility follows the presented key (header or ?key=) —
+        // claude.ai connectors can only pass it in the URL.
+        const sessionKey = apiKeyFromRequest(req.headers as Record<string, unknown>, url);
+        const hasKey = !!(sessionKey && lookupKey(sessionKey));
         const { transport, server: mcpServer } = createSession(hasKey);
         await mcpServer.connect(transport);
         await transport.handleRequest(req, res);

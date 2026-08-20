@@ -32,6 +32,14 @@ Add to `.cursor/mcp.json` (or Cursor Settings → MCP → Add new server):
 }
 ```
 
+To use the consultant handoff (`trip_idea_create`), append your API key to the
+URL — hosted clients such as claude.ai connectors cannot send custom headers:
+
+```
+https://mcp.airtreks.com/mcp?key=at_your_key
+
+```
+
 ### ChatGPT
 
 Settings → **Apps & Connectors** → enable Developer mode (Pro/Business plans) → add `https://mcp.airtreks.com/mcp` as a custom connector.
