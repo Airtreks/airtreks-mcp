@@ -1,0 +1,46 @@
+name: Release
+
+# Publishes the stdio package to npm when a v* tag is pushed, e.g.
+#   git tag v1.1.2 && git push origin v1.1.2
+#
+# Using a repo secret rather than a token on a developer machine: the previous
+# local token had silently expired, which is how a released fix sat unpublished.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write        # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+
+      # Refuse to publish a tag that disagrees with package.json, so the npm
+      # version and the git tag can never drift.
+      - name: Verify tag matches package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          SRV="$(node -p "require('./server.json').version")"
+          echo "tag=$TAG package.json=$PKG server.json=$SRV"
+          [ "$TAG" = "$PKG" ] || { echo "::error::tag $TAG != package.json $PKG"; exit 1; }
+          [ "$TAG" = "$SRV" ] || { echo "::error::tag $TAG != server.json $SRV"; exit 1; }
+
+      # prepublishOnly already runs build + test; this is belt and braces.
+      - run: npx tsc --noEmit
+      - run: npm test
+
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
