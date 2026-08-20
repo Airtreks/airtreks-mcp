@@ -78,6 +78,18 @@ export const hubRules: HubRule[] = [
       "CX SYD-HKG + CX HKG-LHR",
     ],
   },
+  {
+    region: "South America to Oceania",
+    description:
+      "No viable South Pacific crossing on RTW fares. Route north via DFW/LAX — every priced South America–Oceania itinerary goes through the US.",
+    deadLegs: [
+      { carrier: "QF", from: "SCL", to: "SYD", bookability: 0, samples: 118 },
+    ],
+    fixes: [
+      "AA SCL-DFW + AA DFW-LAX + QF LAX-SYD",
+      "For Auckland, continue NZ SYD-AKL — no proven direct LAX-AKL",
+    ],
+  },
 ];
 
 export const bookabilityByLegCount: { legs: string; successRate: number; recommendation: string }[] = [
@@ -99,6 +111,8 @@ export const hubConnections: HubConnection[] = [
   { from: "LAX", to: "SYD", via: [], carriers: ["QF"], notes: "Direct — QF SYD-LAX 80%" },
   { from: "LHR", to: "JFK", via: [], carriers: ["BA", "AA"], notes: "Direct — strong bookability" },
   { from: "SIN", to: "LHR", via: [], carriers: ["SQ"], notes: "Direct — kangaroo route hub" },
+  { from: "SCL", to: "SYD", via: ["DFW", "LAX"], carriers: ["AA", "QF"], notes: "Direct SCL-SYD does not price on RTW fares — route north via the US" },
+  { from: "SCL", to: "AKL", via: ["DFW", "LAX", "SYD"], carriers: ["AA", "QF", "NZ"], notes: "Route north via the US, then onward from SYD. No proven direct LAX-AKL" },
 ];
 
 export function isDeadLeg(from: string, to: string, carrier?: string): DeadLeg | null {
