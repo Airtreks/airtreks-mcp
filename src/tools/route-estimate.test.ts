@@ -29,6 +29,10 @@ function backendReturning(result: EstimateResult | Error, configured = true): Pr
     quoteFare: async () => {
       throw new Error("not used");
     },
+    startItineraryQuote: async () => {
+      throw new Error("not used");
+    },
+    getItineraryQuote: async () => ({ status: "unknown" as const }),
   };
 }
 

@@ -31,3 +31,20 @@ test("adding a spending tool cannot silently inherit wildcard CORS", async () =>
     "the tool response must use the per-tool policy, not the wildcard block",
   );
 });
+
+test("a per-call cost function is charged per call, not as one", async () => {
+  const { upstreamCostOf } = await import("./tools/registry.js");
+  const tool = { upstreamCost: (a: any) => (a?.cities?.length ?? 0) * 3 } as any;
+
+  assert.equal(upstreamCostOf(tool, { cities: ["A", "B", "C"] }), 9);
+  // A cost function that throws must not turn into a free call.
+  assert.equal(upstreamCostOf({ upstreamCost: () => { throw new Error("x"); } } as any, {}), 1);
+  // Nor may it round down to zero.
+  assert.equal(upstreamCostOf({ upstreamCost: () => 0 } as any, {}), 1);
+});
+
+test("a tool with a cost function counts as spending for the CORS policy", async () => {
+  const { costsUpstream } = await import("./tools/registry.js");
+  assert.equal(costsUpstream({ upstreamCost: () => 5 } as any), true);
+  assert.equal(costsUpstream({} as any), false);
+});
