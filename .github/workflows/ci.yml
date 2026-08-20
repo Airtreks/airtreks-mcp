@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Railway deploys this repo's consumers on push with checkSuites disabled, so CI
+# is the only gate. The deny-list tests that keep wholesale cost and margin out of
+# tool responses (AIR-807) are only a control if they actually run on every PR.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # `prepare` runs `npm run build`, so this also proves the package compiles
+      # the way `npm publish` and the git-dependency install will build it.
+      - run: npm ci
+
+      # tsconfig includes src/**/* with no exclude, so this type-checks the
+      # tests too — not just the shipped surface.
+      - run: npx tsc --noEmit
+
+      - run: npm test
