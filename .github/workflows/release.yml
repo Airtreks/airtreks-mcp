@@ -3,8 +3,13 @@ name: Release
 # Publishes the stdio package to npm when a v* tag is pushed, e.g.
 #   git tag v1.1.2 && git push origin v1.1.2
 #
-# Using a repo secret rather than a token on a developer machine: the previous
-# local token had silently expired, which is how a released fix sat unpublished.
+# Auth is npm trusted publishing (OIDC), not a stored token. The previous local
+# token had silently expired, which is how a released fix sat unpublished — a
+# repo secret would only have moved that expiry somewhere less visible. OIDC
+# mints a short-lived credential per run, so there is nothing to rotate.
+#
+# Requires airtreks-mcp to name this repo + workflow as a trusted publisher:
+#   npmjs.com -> airtreks-mcp -> Settings -> Trusted Publisher
 on:
   push:
     tags: ['v*']
@@ -14,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write        # npm provenance
+      id-token: write        # OIDC credential exchange + npm provenance
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +28,9 @@ jobs:
           node-version: '22'
           cache: npm
           registry-url: 'https://registry.npmjs.org'
+
+      # Node 22 bundles npm 10.9.x; trusted publishing needs >= 11.5.1.
+      - run: npm install -g npm@latest
 
       - run: npm ci
 
@@ -41,6 +49,6 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm test
 
+      # No NODE_AUTH_TOKEN: the OIDC exchange supplies credentials, and
+      # provenance is attested from the same identity.
       - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
