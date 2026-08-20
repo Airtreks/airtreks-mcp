@@ -8,8 +8,8 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
-import { matchPlatform, refreshOpenAIRanges } from "./lib/cidr.js";
+import { checkRateLimit, peekRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
+import { matchPlatform, refreshOpenAIRanges, PLATFORM_SESSION_DAILY_LIMIT } from "./lib/cidr.js";
 import { PRIVACY_HTML } from "./privacy.js";
 
 // Single version source: package.json (works from both src/ via tsx and dist/).
@@ -227,6 +227,28 @@ async function startHttp() {
         const platform = keyRecord ? null : matchPlatform(ip);
         const bucketKey = keyRecord ? keyRecord.key : platform ? `platform:${platform.name}` : `ip:${ip}`;
         const dailyLimit = keyRecord ? keyRecord.dailyLimit : platform ? platform.dailyLimit : 100;
+        // On a shared platform pool, check this conversation's own share FIRST —
+        // peeked, not charged, so a request that is about to be refused does not
+        // also spend from the pool everyone else is drawing on.
+        if (platform) {
+          const sessionId = req.headers["mcp-session-id"] as string | undefined;
+          if (sessionId) {
+            const sessionRl = peekRateLimit(`sess:${sessionId}`, PLATFORM_SESSION_DAILY_LIMIT);
+            if (!sessionRl.allowed) {
+              trackRateLimitHit();
+              res.writeHead(429, { "Content-Type": "application/json", ...getRateLimitHeaders(sessionRl) });
+              res.end(JSON.stringify({
+                error: "Rate limit exceeded for this conversation",
+                limit: sessionRl.limit,
+                resetAt: new Date(sessionRl.resetAt).toISOString(),
+                message: `This conversation has used its ${sessionRl.limit} requests/day. Starting a new conversation resets it, or register for an API key for a higher limit: POST https://mcp.airtreks.com/register`,
+              }));
+              return;
+            }
+            checkRateLimit(`sess:${sessionId}`, PLATFORM_SESSION_DAILY_LIMIT);
+          }
+        }
+
         const rl = checkRateLimit(bucketKey, dailyLimit);
 
         if (!rl.allowed) {

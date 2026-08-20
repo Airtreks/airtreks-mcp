@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { IncomingMessage, ServerResponse } from "node:http";
-import { TOOLS, normalizeCityArgs } from "./tools/registry.js";
+import { TOOLS, normalizeCityArgs, costsUpstream } from "./tools/registry.js";
 import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
 import { matchPlatform } from "./lib/cidr.js";
 import { lookupKey, apiKeyFromRequest } from "./lib/api-keys.js";
@@ -16,6 +16,32 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, X-API-Key",
 };
+
+/**
+ * CORS headers for one tool.
+ *
+ * The wildcard is right for the bundled-data tools: they cost nothing to serve
+ * and browser callers are welcome. It is wrong for a tool that spends a provider
+ * search per call. Dispatch here is a dynamic lookup over TOOLS, so a wildcard
+ * makes every new tool callable from any web page — and the anonymous quota is
+ * per visitor IP, so one popular page fans paid calls across as many fresh
+ * 100/day buckets as it has readers. Withholding the wildcard means a browser
+ * cannot read the response cross-origin; server-side agent frameworks, which are
+ * the real consumers of this surface, are unaffected.
+ *
+ * Set CORS_ALLOW_ORIGIN to permit a specific origin if a browser client ever
+ * needs one of these.
+ */
+const SPENDING_TOOL_ORIGIN = process.env.CORS_ALLOW_ORIGIN || "";
+
+function corsFor(toolName: string): Record<string, string> {
+  const tool = TOOLS.find((t) => t.name === toolName);
+  if (!tool || !costsUpstream(tool)) return CORS_HEADERS;
+  const { "Access-Control-Allow-Origin": _wildcard, ...rest } = CORS_HEADERS;
+  return SPENDING_TOOL_ORIGIN
+    ? { ...rest, "Access-Control-Allow-Origin": SPENDING_TOOL_ORIGIN, Vary: "Origin" }
+    : { ...rest, Vary: "Origin" };
+}
 
 export interface RestResult {
   status: number;
@@ -152,12 +178,12 @@ export async function handleRest(req: IncomingMessage, res: ServerResponse, url:
   const name = url.pathname.slice("/api/".length);
 
   if (req.method === "OPTIONS") {
-    res.writeHead(204, CORS_HEADERS);
+    res.writeHead(204, corsFor(name));
     res.end();
     return true;
   }
   if (req.method !== "POST") {
-    res.writeHead(405, { "Content-Type": "application/json", ...CORS_HEADERS });
+    res.writeHead(405, { "Content-Type": "application/json", ...corsFor(name) });
     res.end(JSON.stringify({ error: "Use POST with a JSON body of tool arguments.", spec: `${HOST}/openapi.json` }));
     return true;
   }
@@ -176,7 +202,7 @@ export async function handleRest(req: IncomingMessage, res: ServerResponse, url:
 
   if (!rl.allowed) {
     trackRateLimitHit();
-    res.writeHead(429, { "Content-Type": "application/json", ...CORS_HEADERS, ...getRateLimitHeaders(rl) });
+    res.writeHead(429, { "Content-Type": "application/json", ...corsFor(name), ...getRateLimitHeaders(rl) });
     res.end(JSON.stringify({
       error: "Rate limit exceeded",
       limit: rl.limit,
@@ -192,13 +218,13 @@ export async function handleRest(req: IncomingMessage, res: ServerResponse, url:
   try {
     args = body ? JSON.parse(body) : {};
   } catch {
-    res.writeHead(400, { "Content-Type": "application/json", ...CORS_HEADERS, ...getRateLimitHeaders(rl) });
+    res.writeHead(400, { "Content-Type": "application/json", ...corsFor(name), ...getRateLimitHeaders(rl) });
     res.end(JSON.stringify({ error: "Invalid JSON body.", spec: `${HOST}/openapi.json` }));
     return true;
   }
 
   const result = await executeRestTool(name, args, !!keyRecord);
-  res.writeHead(result.status, { "Content-Type": "application/json", ...CORS_HEADERS, ...getRateLimitHeaders(rl) });
+  res.writeHead(result.status, { "Content-Type": "application/json", ...corsFor(name), ...getRateLimitHeaders(rl) });
   res.end(JSON.stringify(result.body, null, 2));
   return true;
 }
