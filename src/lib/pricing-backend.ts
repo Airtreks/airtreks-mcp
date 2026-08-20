@@ -49,8 +49,6 @@ export interface EstimateResult {
   premiumEconomyFallback: boolean;
   /** How many of the priced units behind this route had recorded fares. */
   coverage: { priced: number; total: number };
-  /** Total recorded fares behind the band. */
-  observations: number;
   /** Set when no band could be produced; safe to show a customer. */
   message?: string;
 }

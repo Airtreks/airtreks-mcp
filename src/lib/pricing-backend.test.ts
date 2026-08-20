@@ -20,7 +20,6 @@ const stub: PricingBackend = {
     confidence: "medium",
     premiumEconomyFallback: false,
     coverage: { priced: 1, total: 1 },
-    observations: 42,
   }),
   quoteFare: async () => ({
     route: "LAX-NRT",
