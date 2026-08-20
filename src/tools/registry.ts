@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { chargeSpend } from "../lib/spend-ledger.js";
 import { normalizeCode } from "../data/city-aliases.js";
+import { TRIP_PLANNER_URL } from "../lib/links.js";
 import { routeValidateSchema, routeValidate } from "./route-validate.js";
 import { routeSuggestSchema, routeSuggest } from "./route-suggest.js";
 import { hubCheckSchema, hubCheck } from "./hub-check.js";
@@ -29,7 +31,7 @@ export interface ToolDef {
   upstreamCost?: number;
 }
 
-export const TOOLS: ToolDef[] = [
+const RAW_TOOLS: ToolDef[] = [
   {
     name: "plan_route",
     title: "Plan a Multi-City Route",
@@ -128,3 +130,37 @@ export function normalizeCityArgs(args: any): any {
 export function costsUpstream(tool: ToolDef): boolean {
   return (tool.upstreamCost ?? 0) > 0;
 }
+
+/**
+ * Wrap a spending tool so it cannot run once the day's upstream budget is gone.
+ *
+ * Applied here rather than per-transport because both the MCP path (index.ts
+ * `tracked`) and the REST path (rest.ts `executeRestTool`) invoke `tool.fn` — so
+ * this is the one place that covers both, and a new transport inherits it.
+ */
+function withBudget(tool: ToolDef): ToolDef {
+  const cost = tool.upstreamCost ?? 0;
+  if (cost <= 0) return tool;
+
+  const inner = tool.fn;
+  return {
+    ...tool,
+    fn: async (args: any) => {
+      const verdict = chargeSpend(cost);
+      if (!verdict.allowed) {
+        // Not an error: the agent should fall back, not retry. Say what to do.
+        return {
+          message:
+            "Live fare pricing has reached its limit for today. It resets at midnight UTC.",
+          tryInstead:
+            "route_estimate gives a price range for the same cities from AirTreks fare history, needs no dates, and is always available.",
+          planYourTrip: TRIP_PLANNER_URL,
+        };
+      }
+      return inner(args);
+    },
+  };
+}
+
+/** The registry as served: spending tools carry their budget guard. */
+export const TOOLS: ToolDef[] = RAW_TOOLS.map(withBudget);
