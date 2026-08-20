@@ -4,8 +4,9 @@ import { TOOLS, costsUpstream } from "./tools/registry.js";
 
 test("only tools that reach a paid provider declare an upstream cost", () => {
   const spending = TOOLS.filter(costsUpstream).map((t) => t.name).sort();
-  // route_estimate answers from recorded history, so it costs nothing to serve.
-  assert.deepEqual(spending, ["fare_quote"]);
+  // route_estimate answers from recorded history and itinerary_quote_status is a
+  // read of an already-paid-for job, so neither costs anything to serve.
+  assert.deepEqual(spending, ["fare_quote", "itinerary_quote"]);
 });
 
 test("fare_quote is one provider search per call", () => {
@@ -13,7 +14,7 @@ test("fare_quote is one provider search per call", () => {
 });
 
 test("the bundled-data tools declare no upstream cost", () => {
-  for (const name of ["plan_route", "route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build", "route_estimate"]) {
+  for (const name of ["plan_route", "route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build", "route_estimate", "itinerary_quote_status"]) {
     const tool = TOOLS.find((t) => t.name === name)!;
     assert.ok(!costsUpstream(tool), `${name} must not be marked as spending`);
   }
