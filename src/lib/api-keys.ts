@@ -59,6 +59,17 @@ export function registerKey(email: string, name: string): ApiKey {
   return key;
 }
 
+/**
+ * The API key presented by a request: the X-API-Key header, or a ?key=
+ * query parameter. Hosted clients that can't set headers on an MCP endpoint
+ * — notably claude.ai connectors — can only pass it in the URL.
+ */
+export function apiKeyFromRequest(headers: Record<string, unknown>, url: URL): string {
+  const header = headers["x-api-key"];
+  if (typeof header === "string" && header.trim() !== "") return header.trim();
+  return (url.searchParams.get("key") || "").trim();
+}
+
 export function lookupKey(key: string): ApiKey | null {
   load();
   return store.keys.find((k) => k.key === key && k.enabled) || null;
