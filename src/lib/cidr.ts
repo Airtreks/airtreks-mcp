@@ -12,6 +12,24 @@ export interface PlatformRange {
   dailyLimit: number;
 }
 
+/**
+ * Per-conversation ceiling for traffic arriving on a shared platform bucket.
+ *
+ * The shared pool exists because a platform's users all egress from a handful of
+ * IPs, so per-IP limits would starve them. The cost is that one heavy caller can
+ * drain the pool for everyone else behind the same range. Charging each MCP
+ * session its own smaller share bounds that: the realistic failure is an agent
+ * stuck in a retry loop inside one conversation, and this stops that
+ * conversation taking the whole day's pool with it.
+ *
+ * It is a bound, not a defence — session ids are free to mint, so a determined
+ * caller can rotate them. The spend ledger is what actually caps cost.
+ */
+export const PLATFORM_SESSION_DAILY_LIMIT = parseInt(
+  process.env.PLATFORM_SESSION_DAILY_LIMIT || "250",
+  10,
+);
+
 // Anthropic egress for Claude connectors: https://claude.com/docs (160.79.104.0/21)
 // OpenAI egress for ChatGPT apps/connectors rotates; seeded from a snapshot and
 // refreshed live via refreshOpenAIRanges().

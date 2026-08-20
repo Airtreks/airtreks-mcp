@@ -21,6 +21,12 @@ export interface ToolDef {
   readOnly: boolean;
   /** Requires an X-API-Key (lead-gen tools). */
   requiresKey: boolean;
+  /**
+   * Upstream searches one call costs us. 0 for the bundled-data tools and for
+   * anything answered from recorded history; >0 only where a call reaches a
+   * paid provider. Drives the spend ledger and the CORS policy below.
+   */
+  upstreamCost?: number;
 }
 
 export const TOOLS: ToolDef[] = [
@@ -59,6 +65,8 @@ export const TOOLS: ToolDef[] = [
     fn: fareQuote,
     readOnly: true,
     requiresKey: false,
+    // One live provider search per call.
+    upstreamCost: 1,
   },
   {
     name: "route_validate",
@@ -114,4 +122,9 @@ export function normalizeCityArgs(args: any): any {
   if (typeof args?.from === "string") args.from = normalizeCode(args.from);
   if (typeof args?.to === "string") args.to = normalizeCode(args.to);
   return args;
+}
+
+/** True for tools where one call reaches a paid provider. */
+export function costsUpstream(tool: ToolDef): boolean {
+  return (tool.upstreamCost ?? 0) > 0;
 }
