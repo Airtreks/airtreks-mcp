@@ -262,3 +262,51 @@ test("overland legs do not trigger the hint on their own", async () => {
   // Two flown legs after the overland marker is not a multi-stop trip.
   assert.equal(out.alsoConsider, undefined);
 });
+
+test("a codeshare names the operating carrier (AIR-810)", async () => {
+  // Live example: UA9729 LAX-ZRH is flown by Swiss. A customer who books it
+  // expecting United and boards an LX aircraft contacts support.
+  const out = await withBackend(
+    backend(
+      quote({
+        options: [
+          {
+            total: 900,
+            currency: "USD",
+            perPassengerType: [{ type: "adult", count: 1, each: 900, total: 900 }],
+            legs: [
+              {
+                flights: [
+                  { from: "LAX", to: "ZRH", airline: "UA", flightNumber: "9729", operatedBy: "LX" },
+                ],
+                stops: 0,
+              },
+            ],
+            baggage: null,
+          },
+        ],
+      }),
+    ),
+    () => fareQuote({ cities: ["LAX", "ZRH"], dates: ["2027-02-02"] }),
+  );
+
+  assert.deepEqual(out.options![0].flights, ["LAX→ZRH UA9729, operated by LX"]);
+  assert.ok(
+    out.caveats!.some((c) => /operated by/i.test(c)),
+    "a codeshare must be explained once, not just marked",
+  );
+});
+
+test("a normal flight is not cluttered with its own operator", async () => {
+  // NH175 operated by NH is noise. `operatedBy` is only set when it differs, so
+  // its presence is the codeshare signal.
+  const out = await withBackend(backend(quote()), () =>
+    fareQuote({ cities: ["LAX", "NRT"], dates: ["2026-11-12"] }),
+  );
+
+  assert.deepEqual(out.options![0].flights, ["LAX→NRT NH175"]);
+  assert.ok(
+    !out.caveats!.some((c) => /operated by/i.test(c)),
+    "no codeshare, no codeshare caveat",
+  );
+});

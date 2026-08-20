@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TRIP_PLANNER_URL } from "../lib/links.js";
+import { TRIP_PLANNER_URL, describeFlight } from "../lib/links.js";
 import {
   forwardPricingRequest,
   getPricingBackend,
@@ -91,6 +91,11 @@ function describeTravellers(a: number, c: number, i: number): string {
   return parts.join(", ");
 }
 
+/** True when any leg is sold by one carrier and flown by another. */
+function hasCodeshare(options: { legs: { flights: { operatedBy?: string }[] }[] }[]): boolean {
+  return options.some((o) => o.legs.some((l) => l.flights.some((f) => !!f.operatedBy)));
+}
+
 function money(value: number, currency: string): string {
   return `${Math.round(value).toLocaleString("en-US")} ${currency}`;
 }
@@ -180,11 +185,7 @@ export async function fareQuote(args: {
             ? `1 ${p.type}: ${money(p.each, currency)}`
             : `${p.count} ${p.type}s at ${money(p.each, currency)} each = ${money(p.total, currency)}`,
         ),
-        flights: option.legs.map((leg) =>
-          leg.flights
-            .map((f) => `${f.from}→${f.to}${f.airline ? ` ${f.airline}${f.flightNumber ?? ""}` : ""}`)
-            .join(", "),
-        ),
+        flights: option.legs.map((leg) => leg.flights.map(describeFlight).join(", ")),
         stops: option.legs.reduce((sum, leg) => sum + leg.stops, 0),
         durationHours: minutes > 0 ? Math.round((minutes / 60) * 10) / 10 : undefined,
         baggage: option.baggage,
@@ -203,6 +204,11 @@ export async function fareQuote(args: {
       : {}),
     caveats: [
       "These are live fares for the dates given — availability and price can change between now and booking.",
+      ...(hasCodeshare(result.options)
+        ? [
+            "Some flights are sold by one airline and flown by another — those are marked \"operated by\". The operating airline determines the aircraft, seat and service, so it is worth telling the customer.",
+          ]
+        : []),
       result.cached
         ? "Served from fares retrieved in the last few minutes rather than a fresh search."
         : "Retrieved just now.",

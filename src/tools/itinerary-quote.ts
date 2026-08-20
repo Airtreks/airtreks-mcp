@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TRIP_PLANNER_URL } from "../lib/links.js";
+import { TRIP_PLANNER_URL, describeFlight } from "../lib/links.js";
 import {
   forwardPricingRequest,
   getPricingBackend,
@@ -182,11 +182,7 @@ export async function itineraryQuoteStatus(args: {
         covers: ticket.covers,
         eachTraveller: ticket.each,
         totalForParty: ticket.total,
-        flights: ticket.legs.map((leg) =>
-          leg.flights
-            .map((f) => `${f.from}→${f.to}${f.airline ? ` ${f.airline}${f.flightNumber ?? ""}` : ""}`)
-            .join(", "),
-        ),
+        flights: ticket.legs.map((leg) => leg.flights.map(describeFlight).join(", ")),
         baggage: ticket.baggage,
       })),
       stops: option.stops,
@@ -198,6 +194,13 @@ export async function itineraryQuoteStatus(args: {
     unpricedSegments: state.unpriced?.length ? state.unpriced : undefined,
     caveats: [
       "These are live fares for the dates given — availability and price can change between now and booking.",
+      ...(options.some((o) =>
+        o.tickets.some((t) => t.legs.some((l) => l.flights.some((f) => !!f.operatedBy))),
+      )
+        ? [
+            "Some flights are sold by one airline and flown by another — those are marked \"operated by\". The operating airline determines the aircraft, seat and service.",
+          ]
+        : []),
       "Each option is a different way of ticketing the same trip. Cheaper ones usually mean more stops or separate tickets, which are booked independently and don't protect each other if a flight is missed.",
     ],
     planYourTrip: TRIP_PLANNER_URL,
