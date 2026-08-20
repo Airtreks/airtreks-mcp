@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRIP_PLANNER_URL, describeFlight } from "../lib/links.js";
+import { findAirportChanges } from "../lib/airport-changes.js";
 import {
   forwardPricingRequest,
   getPricingBackend,
@@ -186,6 +187,15 @@ export async function itineraryQuoteStatus(args: {
         baggage: ticket.baggage,
       })),
       stops: option.stops,
+      // Across tickets, not within one: separate tickets are chosen
+      // independently, so nothing makes them agree on an airport, and this is
+      // where a DMK-in/BKK-out change actually shows up.
+      airportChanges: (() => {
+        const changes = findAirportChanges(
+          option.tickets.flatMap((t) => t.legs.flatMap((l) => l.flights)),
+        );
+        return changes.length ? changes : undefined;
+      })(),
       durationHours:
         option.durationMinutes && option.durationMinutes > 0
           ? Math.round((option.durationMinutes / 60) * 10) / 10
