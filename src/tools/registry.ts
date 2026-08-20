@@ -11,6 +11,13 @@ import { planRouteSchema, planRoute } from "./plan-route.js";
 import { tripIdeaCreateSchema, tripIdeaCreate } from "./trip-idea-create.js";
 import { routeEstimateSchema, routeEstimate } from "./route-estimate.js";
 import { fareQuoteSchema, fareQuote } from "./fare-quote.js";
+import {
+  itineraryQuoteSchema,
+  itineraryQuote,
+  itineraryQuoteStatusSchema,
+  itineraryQuoteStatus,
+  estimateSearches,
+} from "./itinerary-quote.js";
 
 // Single source of truth for both transports: MCP registration (index.ts)
 // and the parallel REST surface + OpenAPI spec (rest.ts, AIR-461).
@@ -73,6 +80,27 @@ const RAW_TOOLS: ToolDef[] = [
     requiresKey: false,
     // One live provider search per call.
     upstreamCost: 1,
+  },
+  {
+    name: "itinerary_quote",
+    title: "Price a Whole Multi-Stop Trip",
+    description: "Price a complete multi-stop or round-the-world trip and get back several ways of ticketing it — cheapest, fastest, fewest stops — with the actual tickets each one is built from. Use this for trips that will not go on a single fare, which is most itineraries with 3+ stops; use fare_quote when you want one specific itinerary on one ticket. It takes about a minute, so it returns a quoteReference immediately and you fetch the result with itinerary_quote_status. Keep that reference — it is the only way to retrieve the quote.",
+    schema: itineraryQuoteSchema,
+    fn: itineraryQuote,
+    readOnly: true,
+    requiresKey: false,
+    // Charged per call from the leg count: this fans out across many provider
+    // searches, so a flat cost would let the priciest tool draw the least budget.
+    upstreamCost: estimateSearches,
+  },
+  {
+    name: "itinerary_quote_status",
+    title: "Retrieve a Multi-Stop Trip Quote",
+    description: "Fetch the result of an itinerary_quote using the quoteReference it returned. Returns status 'pending' with how long to wait, or the finished options. Costs nothing and does no searching, so poll it rather than starting a second quote.",
+    schema: itineraryQuoteStatusSchema,
+    fn: itineraryQuoteStatus,
+    readOnly: true,
+    requiresKey: false,
   },
   {
     name: "route_validate",

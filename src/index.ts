@@ -328,7 +328,7 @@ async function startHttp() {
         mcp_endpoint: "/mcp",
         rest_api: "POST /api/{tool} with a JSON body of tool arguments",
         openapi: "https://mcp.airtreks.com/openapi.json",
-        free_tools: ["plan_route", "route_estimate", "fare_quote", "route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build"],
+        free_tools: ["plan_route", "route_estimate", "fare_quote", "itinerary_quote", "itinerary_quote_status", "route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build"],
         api_key_tools: ["trip_idea_create"],
         rate_limit: "100 requests/day (free), higher with API key",
         register: "POST /register with {\"email\": \"you@example.com\"}",
