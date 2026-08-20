@@ -77,7 +77,18 @@ export interface FareQuoteOpts {
 export interface QuotedFlight {
   from: string;
   to: string;
+  /** Marketing carrier — the airline whose code is on the ticket. */
   airline?: string;
+  /**
+   * Operating carrier, set ONLY when it differs from the marketing one.
+   *
+   * Its presence is the signal that this leg is a codeshare, so a consumer can
+   * branch on that rather than compare two codes. An IATA code rather than a
+   * name: our carrier tables are curated for routing advice and cover about a
+   * quarter of the codes that turn up here, so resolving names would be absent
+   * more often than present — and a code is something an agent can expand.
+   */
+  operatedBy?: string;
   flightNumber?: string;
   departsAt?: string;
   arrivesAt?: string;
