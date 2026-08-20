@@ -1,0 +1,54 @@
+name: Release
+
+# Publishes the stdio package to npm when a v* tag is pushed, e.g.
+#   git tag v1.1.2 && git push origin v1.1.2
+#
+# Auth is npm trusted publishing (OIDC), not a stored token. The previous local
+# token had silently expired, which is how a released fix sat unpublished — a
+# repo secret would only have moved that expiry somewhere less visible. OIDC
+# mints a short-lived credential per run, so there is nothing to rotate.
+#
+# Requires airtreks-mcp to name this repo + workflow as a trusted publisher:
+#   npmjs.com -> airtreks-mcp -> Settings -> Trusted Publisher
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write        # OIDC credential exchange + npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+
+      # Node 22 bundles npm 10.9.x; trusted publishing needs >= 11.5.1.
+      - run: npm install -g npm@latest
+
+      - run: npm ci
+
+      # Refuse to publish a tag that disagrees with package.json, so the npm
+      # version and the git tag can never drift.
+      - name: Verify tag matches package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          SRV="$(node -p "require('./server.json').version")"
+          echo "tag=$TAG package.json=$PKG server.json=$SRV"
+          [ "$TAG" = "$PKG" ] || { echo "::error::tag $TAG != package.json $PKG"; exit 1; }
+          [ "$TAG" = "$SRV" ] || { echo "::error::tag $TAG != server.json $SRV"; exit 1; }
+
+      # prepublishOnly already runs build + test; this is belt and braces.
+      - run: npx tsc --noEmit
+      - run: npm test
+
+      # No NODE_AUTH_TOKEN: the OIDC exchange supplies credentials, and
+      # provenance is attested from the same identity.
+      - run: npm publish --provenance --access public
