@@ -50,13 +50,25 @@ export const fareQuoteSchema = {
     .describe(`How many fare options to return. Defaults to ${DEFAULT_OPTIONS}.`),
 };
 
+/**
+ * Flown legs beyond which a single ticket stops being a sensible way to buy the
+ * trip. Measured on OTP-BKK-SYD-LAX-LIS-OTP for 2027 dates: one ticket covering
+ * all five legs priced at 11,117 USD per person, while the same trip split
+ * across five tickets came back at 2,238 — and the historical estimate for the
+ * route agreed with the split figure, not the through-fare. Four times the price
+ * for the same journey.
+ *
+ * Three is where AirTreks' whole premise starts applying, so that is the trigger.
+ */
+const SPLIT_TICKET_HINT_LEGS = 3;
+
 export interface FareQuoteToolResult {
   route: string;
   cabin: Cabin;
   currency?: string;
   travellers?: string;
   options?: {
-    total: number | null;
+    totalForParty: number | null;
     perTraveller: string[];
     flights: string[];
     stops: number;
@@ -65,6 +77,7 @@ export interface FareQuoteToolResult {
   }[];
   priced?: string;
   caveats?: string[];
+  alsoConsider?: string;
   planYourTrip?: string;
   message?: string;
   error?: string;
@@ -133,6 +146,8 @@ export async function fareQuote(args: {
   }
 
   const travellers = describeTravellers(adults, children, infants);
+  const places = (args.cities ?? []).filter((c) => c !== "000");
+  const flownLegs = Math.max(1, places.length - 1);
 
   if (!result.options.length) {
     return {
@@ -156,9 +171,14 @@ export async function fareQuote(args: {
     options: result.options.map((option) => {
       const minutes = option.legs.reduce((sum, leg) => sum + (leg.durationMinutes ?? 0), 0);
       return {
-        total: option.total,
-        perTraveller: option.perPassengerType.map(
-          (p) => `${p.count} × ${p.type}: ${money(p.total, currency)}`,
+        totalForParty: option.total,
+        // "2 adults at 492 USD each = 985 USD" — the old form read
+        // "2 × adult: 985 USD", which an agent could take either as the party
+        // total or as the price each. It was neither, reliably (AIR-808).
+        perTraveller: option.perPassengerType.map((p) =>
+          p.count === 1
+            ? `1 ${p.type}: ${money(p.each, currency)}`
+            : `${p.count} ${p.type}s at ${money(p.each, currency)} each = ${money(p.total, currency)}`,
         ),
         flights: option.legs.map((leg) =>
           leg.flights
@@ -170,7 +190,17 @@ export async function fareQuote(args: {
         baggage: option.baggage,
       };
     }),
-    priced: `Live fare for ${travellers}, total for the whole party in ${currency}.`,
+    priced: `Live fare for ${travellers}. \`totalForParty\` is what everyone pays together, in ${currency}; the per-traveller lines give the price each.`,
+    // A single fare across many legs is technically a valid answer and
+    // commercially a poor one. Returning it without saying so is how an agent
+    // quotes four times the necessary price and loses the trip (AIR-808).
+    ...(flownLegs >= SPLIT_TICKET_HINT_LEGS
+      ? {
+          alsoConsider:
+            `This is priced as ONE ticket covering all ${flownLegs} flights. On multi-stop trips that is usually far more expensive than buying separate tickets — often several times more. ` +
+            `itinerary_quote prices this same trip split across tickets and is very likely to come back much lower; worth calling before quoting this figure to anyone.`,
+        }
+      : {}),
     caveats: [
       "These are live fares for the dates given — availability and price can change between now and booking.",
       result.cached

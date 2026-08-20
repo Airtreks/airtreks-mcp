@@ -171,14 +171,17 @@ export async function itineraryQuoteStatus(args: {
     // splits differ enough that the choice is the answer, not a detail.
     options: options.map((option) => ({
       bestFor: option.bestFor,
-      total: option.total,
-      perTraveller: option.perPassengerType.map(
-        (p) => `${p.count} × ${p.type}: ${money(p.total, currency)}`,
+      totalForParty: option.total,
+      perTraveller: option.perPassengerType.map((p) =>
+        p.count === 1
+          ? `1 ${p.type}: ${money(p.each, currency)}`
+          : `${p.count} ${p.type}s at ${money(p.each, currency)} each = ${money(p.total, currency)}`,
       ),
       ticketCount: option.tickets.length,
       tickets: option.tickets.map((ticket) => ({
         covers: ticket.covers,
-        total: ticket.total,
+        eachTraveller: ticket.each,
+        totalForParty: ticket.total,
         flights: ticket.legs.map((leg) =>
           leg.flights
             .map((f) => `${f.from}→${f.to}${f.airline ? ` ${f.airline}${f.flightNumber ?? ""}` : ""}`)

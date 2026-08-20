@@ -22,11 +22,11 @@ const READY: QuoteJobState = {
       bestFor: "lowest total price",
       total: 1514.52,
       currency: "USD",
-      perPassengerType: [{ type: "adult", count: 1, total: 1514.52 }],
+      perPassengerType: [{ type: "adult", count: 1, each: 1514.52, total: 1514.52 }],
       tickets: [
-        { covers: "LAX → NRT", total: 492.37, legs: [{ flights: [{ from: "LAX", to: "NRT", airline: "NH", flightNumber: "175" }], stops: 0 }], baggage: "2 pieces" },
-        { covers: "NRT → BKK", total: 511.15, legs: [{ flights: [{ from: "NRT", to: "BKK" }], stops: 0 }], baggage: null },
-        { covers: "BKK → LHR → LAX", total: 511.0, legs: [{ flights: [{ from: "BKK", to: "LHR" }], stops: 0 }], baggage: null },
+        { covers: "LAX → NRT", each: 492.37, total: 492.37, legs: [{ flights: [{ from: "LAX", to: "NRT", airline: "NH", flightNumber: "175" }], stops: 0 }], baggage: "2 pieces" },
+        { covers: "NRT → BKK", each: 511.15, total: 511.15, legs: [{ flights: [{ from: "NRT", to: "BKK" }], stops: 0 }], baggage: null },
+        { covers: "BKK → LHR → LAX", each: 511.0, total: 511.0, legs: [{ flights: [{ from: "BKK", to: "LHR" }], stops: 0 }], baggage: null },
       ],
       durationMinutes: 2220,
       stops: 3,
@@ -35,8 +35,8 @@ const READY: QuoteJobState = {
       bestFor: "fewest stops",
       total: 5964.22,
       currency: "USD",
-      perPassengerType: [{ type: "adult", count: 1, total: 5964.22 }],
-      tickets: [{ covers: "LAX → NRT → BKK → LHR → LAX", total: 5964.22, legs: [], baggage: "2 pieces" }],
+      perPassengerType: [{ type: "adult", count: 1, each: 5964.22, total: 5964.22 }],
+      tickets: [{ covers: "LAX → NRT → BKK → LHR → LAX", each: 5964.22, total: 5964.22, legs: [], baggage: "2 pieces" }],
       stops: 0,
     },
   ],
@@ -93,7 +93,7 @@ test("a ready quote presents each way of ticketing the trip", async () => {
   assert.equal(out.options[0].bestFor, "lowest total price");
   assert.equal(out.options[0].ticketCount, 3);
   assert.equal(out.options[1].ticketCount, 1);
-  assert.deepEqual(out.options[0].perTraveller, ["1 × adult: 1,515 USD"]);
+  assert.deepEqual(out.options[0].perTraveller, ["1 adult: 1,515 USD"]);
   assert.equal(out.options[0].durationHours, 37);
 });
 
@@ -180,4 +180,23 @@ test("schemas bound the trip and require a plausible reference", () => {
   assert.equal(itineraryQuoteSchema.dates.safeParse([]).success, false);
   assert.equal(itineraryQuoteStatusSchema.quoteReference.safeParse("short").success, false);
   assert.equal(itineraryQuoteStatusSchema.quoteReference.safeParse("x".repeat(43)).success, true);
+});
+
+test("option and ticket prices are each labelled party-or-person (AIR-808)", async () => {
+  const out: any = await withBackend(backend(), () =>
+    itineraryQuoteStatus({ quoteReference: "z".repeat(43) }),
+  );
+
+  const option = out.options[0];
+  assert.equal(typeof option.totalForParty, "number");
+  assert.equal(option.total, undefined, "the ambiguous name must be gone");
+
+  for (const ticket of option.tickets) {
+    // Upstream gives a per-person figure for a ticket while the option total is
+    // a party figure, so tickets summing to less than their option is correct —
+    // but only if both are labelled. Unlabelled they look like a contradiction.
+    assert.ok("eachTraveller" in ticket, "a ticket must say what one traveller pays");
+    assert.ok("totalForParty" in ticket, "and what the party pays");
+    assert.equal(ticket.total, undefined);
+  }
 });

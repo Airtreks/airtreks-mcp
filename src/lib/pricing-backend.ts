@@ -94,12 +94,21 @@ export interface PricePerPassengerType {
   /** Customer-facing label: "adult", "child", "infant". */
   type: string;
   count: number;
-  /** Total for all passengers of this type. */
+  /** What ONE traveller of this type pays. */
+  each: number;
+  /** What all `count` travellers of this type pay together, i.e. each x count. */
   total: number;
 }
 
 export interface FareOption {
-  /** All-in customer price for the whole itinerary, all passengers. */
+  /**
+   * All-in customer price for the whole itinerary, for EVERY traveller together.
+   *
+   * Backends must compute this from the per-passenger rows and their counts.
+   * The upstream's own total cannot be trusted for it — see the note in the
+   * hosted backend. Getting this wrong understates a family's price by roughly
+   * the number of travellers (AIR-808).
+   */
   total: number | null;
   currency: string;
   perPassengerType: PricePerPassengerType[];
@@ -140,12 +149,16 @@ export interface ItineraryQuoteOpts {
 export interface ItineraryOption {
   /** What this way of splitting optimises for, in plain terms. */
   bestFor: string;
+  /** Price for EVERY traveller together, across all the tickets below. */
   total: number | null;
   currency: string;
   perPassengerType: PricePerPassengerType[];
   /** The separately-priced tickets this option is built from. */
   tickets: {
     covers: string;
+    /** What ONE traveller pays for this ticket. */
+    each: number | null;
+    /** What every traveller pays for this ticket together. */
     total: number | null;
     legs: QuotedLeg[];
     baggage: string | null;
