@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRIP_PLANNER_URL, describeFlight } from "../lib/links.js";
+import { findAirportChanges, type AirportChange } from "../lib/airport-changes.js";
 import {
   forwardPricingRequest,
   getPricingBackend,
@@ -70,6 +71,7 @@ export interface FareQuoteToolResult {
   options?: {
     totalForParty: number | null;
     perTraveller: string[];
+    airportChanges?: AirportChange[];
     flights: string[];
     stops: number;
     durationHours?: number;
@@ -77,6 +79,7 @@ export interface FareQuoteToolResult {
   }[];
   priced?: string;
   caveats?: string[];
+  airportChanges?: AirportChange[];
   alsoConsider?: string;
   planYourTrip?: string;
   message?: string;
@@ -189,6 +192,10 @@ export async function fareQuote(args: {
         stops: option.legs.reduce((sum, leg) => sum + leg.stops, 0),
         durationHours: minutes > 0 ? Math.round((minutes / 60) * 10) / 10 : undefined,
         baggage: option.baggage,
+        airportChanges: (() => {
+          const changes = findAirportChanges(option.legs.flatMap((l) => l.flights));
+          return changes.length ? changes : undefined;
+        })(),
       };
     }),
     priced: `Live fare for ${travellers}. \`totalForParty\` is what everyone pays together, in ${currency}; the per-traveller lines give the price each.`,
