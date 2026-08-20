@@ -332,7 +332,7 @@ async function startHttp() {
         api_key_tools: ["trip_idea_create"],
         rate_limit: "100 requests/day (free), higher with API key",
         register: "POST /register with {\"email\": \"you@example.com\"}",
-        docs: "https://github.com/SEKeener/airtreks-mcp",
+        docs: "https://github.com/Airtreks/airtreks-mcp",
         privacy: "https://mcp.airtreks.com/privacy",
       }));
       return;

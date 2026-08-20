@@ -6,6 +6,8 @@
 
 **Live endpoint:** `https://mcp.airtreks.com/mcp` - free, no API key, 100 requests/day.
 
+Now with **real prices**: a historical range for any route in under a second, live fares for a specific itinerary, and a full multi-stop trip priced across several tickets — the same trip can vary three-fold depending on how it is ticketed, and that is the part no other flight tool will tell you.
+
 ## 30-second setup
 
 ### Claude Desktop
@@ -130,6 +132,15 @@ Those are honest ranges, not quotes - exact pricing on a 7-leg mixed-carrier iti
 | `hub_check` | Best connection between two airports - dead leg detection + hub fixes |
 | `fare_product_match` | Match the right fare product (RTW, Circle Pacific/Atlantic, Open Jaw, Custom) with typical price ranges |
 | `custom_route_build` | Break complex itineraries into individually-ticketable segments with carrier recommendations |
+
+#### Pricing
+
+| Tool | Description |
+|------|-------------|
+| `route_estimate` | Price range for a route from AirTreks fare history. No dates needed, answers in about a quarter of a second — the right tool when someone asks "what will this cost?" before anything is decided |
+| `fare_quote` | Live fares for one specific itinerary on specific dates, priced as a single ticket |
+| `itinerary_quote` | Prices a whole multi-stop trip and returns several ways to ticket it — cheapest, fastest, fewest stops — with the tickets each one is built from. Takes about a minute, so it returns a reference immediately |
+| `itinerary_quote_status` | Fetches an `itinerary_quote` result by its reference. Free to poll |
 
 ### API key required
 

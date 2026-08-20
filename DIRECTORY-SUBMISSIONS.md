@@ -6,11 +6,11 @@
 |-------|-------|
 | Name | AirTreks MCP (`io.github.SEKeener/airtreks-mcp`) |
 | One-sentence description | Multi-city flight routing intelligence — plan RTW trips, validate alliances, get carrier picks. |
-| Long description | Complex multi-city flight routing intelligence for AI agents. 7 tools: plan round-the-world trips across 60+ carriers, validate Star Alliance and oneworld alliance routings, get segment-by-segment carrier recommendations, identify surface sector savings, and hand off to human consultants. No API key needed (100 req/day free). |
-| Tool list | `plan_route`, `route_validate`, `route_suggest`, `hub_check`, `fare_product_match`, `custom_route_build` (free) + `trip_idea_create` (API key) |
+| Long description | Complex multi-city flight routing intelligence for AI agents, with real prices. 10 tools: plan round-the-world trips across 60+ carriers, validate Star Alliance and oneworld routings, get segment-by-segment carrier recommendations, identify surface sector savings, price a route from AirTreks fare history, quote live fares for a specific itinerary, price a whole multi-stop trip across several tickets, and hand off to human consultants. No API key needed (100 req/day free). |
+| Tool list | Routing: `plan_route`, `route_validate`, `route_suggest`, `hub_check`, `fare_product_match`, `custom_route_build`. Pricing: `route_estimate`, `fare_quote`, `itinerary_quote`, `itinerary_quote_status`. All ten free; `trip_idea_create` needs an API key. |
 | Transport | Streamable HTTP at `https://mcp.airtreks.com/mcp`; stdio via `npx airtreks-mcp` |
 | Auth model | Free tier: none, 100 req/day per IP. API key (for `trip_idea_create` + higher limits): `POST https://mcp.airtreks.com/register` |
-| Repo | https://github.com/SEKeener/airtreks-mcp |
+| Repo | https://github.com/Airtreks/airtreks-mcp — note the MCP Registry namespace is still `io.github.SEKeener/airtreks-mcp`, and `server.json` keeps the old URL to match it. Changing the namespace registers a *different* server rather than renaming this one, so it needs a deliberate decision plus a publish from that GitHub identity. The old URL 301-redirects, so nothing is broken. |
 | Homepage | https://airtreks.com (server: https://mcp.airtreks.com) |
 | Icon (PNG 512, light) | https://airtreks.com/brand/airtreks-icon-512.png |
 | Icon (PNG 512, dark) | https://airtreks.com/brand/airtreks-icon-dark-512.png |
@@ -77,16 +77,23 @@ Sean-interactive steps, in order:
 2. Confirm you have `api.apps.write` (org owners have it automatically).
 3. At https://platform.openai.com/plugins create a submission:
    - MCP server URL: `https://mcp.airtreks.com/mcp` (no auth credentials needed)
-   - Click **Scan Tools** — it should find all 7 tools with annotations
+   - Click **Scan Tools** — it should find all 11 tools (10 free + `trip_idea_create`) with annotations
    - Fill metadata from the canonical pack at the top of this doc (name, logo
      512 PNG, descriptions, privacy URL `https://mcp.airtreks.com/privacy`)
    - Country availability: all countries
    - No UI screenshots (server has no Apps SDK UI components)
 4. Test prompts with expected responses (the review runs these; copy as-is):
-   - "Plan a round-the-world trip from San Francisco through Tokyo, Bangkok, and London" — `plan_route` returns an ordered itinerary with carrier recommendations per segment and an honest fare range (never a per-itinerary price).
+   - "Plan a round-the-world trip from San Francisco through Tokyo, Bangkok, and London" — `plan_route` returns an ordered itinerary with carrier recommendations per segment, alliance feasibility, and surface-sector suggestions. It returns **no price**; pricing is a separate set of tools.
    - "Is SFO-NRT-BKK-LHR-SFO valid as a Star Alliance RTW routing?" — `route_validate` returns a validity verdict with rule-by-rule reasoning.
    - "Suggest a 4-stop round-the-world routing through Asia and Europe on Star Alliance" — `route_suggest` returns up to 3 proven routing templates with bookability ratings.
    - "What's the best connection between Portland and Tokyo?" — `hub_check` returns the best hub routing with proven carrier combinations (flags dead legs if any).
+   - "Roughly what does LAX to Tokyo to Bangkok to London and back cost?" — `route_estimate` returns a per-person USD range from AirTreks fare history in under a second, labelled as a range from past bookings rather than a live quote.
+   - "What are the actual fares LAX to Tokyo on 12 November 2026?" — `fare_quote` returns live fares with flight numbers, stops and duration, stating that availability and price can change before booking. Takes up to about 40 seconds.
+   - "Price the whole trip LAX, Tokyo, Bangkok, London, LAX for those dates" — `itinerary_quote` returns a `quoteReference` immediately with `status: "pending"`, then `itinerary_quote_status` returns several ways to ticket the trip. **This is expected two-step behaviour, not a failure** — pricing a multi-stop trip takes about a minute, which is why it is asynchronous.
+
+   Note for the reviewer-facing description: the pricing tools return real prices, including
+   per-itinerary totals. Earlier copy for this listing said the server never returns a
+   per-itinerary price. That is no longer true and the wording above supersedes it.
 5. Submit for review. Timeline ~1-2 weeks. Common rejections: connection
    failures, failed test prompts, annotation mismatches, undisclosed user data.
 6. After approval, hit **Publish** in the portal; the app becomes searchable in
@@ -104,7 +111,7 @@ Published 2026-07-13 as `io.github.SEKeener/airtreks-mcp` v1.0.2 (isLatest, acti
 
 - **Type:** MCP Server
 - **Name:** AirTreks MCP
-- **URL:** https://github.com/SEKeener/airtreks-mcp
+- **URL:** https://github.com/Airtreks/airtreks-mcp
 - **Server Config:**
 ```json
 {
@@ -121,8 +128,8 @@ Published 2026-07-13 as `io.github.SEKeener/airtreks-mcp` v1.0.2 (isLatest, acti
 ## mcpservers.org — https://mcpservers.org/submit
 
 - **Server Name:** AirTreks MCP
-- **Short Description:** Complex multi-city flight routing intelligence for AI agents. 7 tools: plan round-the-world trips across 60+ carriers, validate Star Alliance and oneworld alliance routings, get segment-by-segment carrier recommendations, identify surface sector savings, and hand off to human consultants. No API key needed (100 req/day free).
-- **Link:** https://github.com/SEKeener/airtreks-mcp
+- **Short Description:** Complex multi-city flight routing intelligence for AI agents, with real prices. 10 tools: plan round-the-world trips across 60+ carriers, validate Star Alliance and oneworld routings, get segment-by-segment carrier recommendations, identify surface sector savings, price a route from AirTreks fare history, quote live fares for a specific itinerary, price a whole multi-stop trip across several tickets, and hand off to human consultants. No API key needed (100 req/day free).
+- **Link:** https://github.com/Airtreks/airtreks-mcp
 - **Category:** Other (or Finance if no Travel option)
 - **Contact Email:** sean@airtreks.com
 
@@ -130,7 +137,7 @@ Published 2026-07-13 as `io.github.SEKeener/airtreks-mcp` v1.0.2 (isLatest, acti
 
 ## PulseMCP — https://www.pulsemcp.com/submit
 
-- **URL:** https://github.com/SEKeener/airtreks-mcp
+- **URL:** https://github.com/Airtreks/airtreks-mcp
 - (PulseMCP auto-enriches from the GitHub repo README)
 
 ---
@@ -138,7 +145,7 @@ Published 2026-07-13 as `io.github.SEKeener/airtreks-mcp` v1.0.2 (isLatest, acti
 ## Glama.ai — https://glama.ai/mcp/servers
 
 Click "Add Server" and paste:
-- **GitHub URL:** https://github.com/SEKeener/airtreks-mcp
+- **GitHub URL:** https://github.com/Airtreks/airtreks-mcp
 
 ---
 

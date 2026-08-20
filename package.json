@@ -1,6 +1,6 @@
 {
   "name": "airtreks-mcp",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "AirTreks MCP Server \u2014 complex flight routing intelligence for AI agents. Plan multi-city trips, validate alliance routings, get carrier recommendations, and create trip ideas.",
   "repository": {
     "type": "git",

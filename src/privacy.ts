@@ -30,9 +30,13 @@ and how it is used.</p>
 <ul>
 <li><strong>Request metadata.</strong> Your IP address, used for rate limiting and
 daily aggregate usage statistics (request counts and unique-visitor counts).</li>
-<li><strong>Tool inputs.</strong> The parameters sent to routing tools (city codes,
-dates, preferences) are used to answer the request and recorded as aggregate
-counters of which tools and routes are queried.</li>
+<li><strong>Tool inputs.</strong> The parameters sent to our tools (city codes,
+dates, cabin, number of travellers) are used to answer the request. For the
+routing tools, we keep only aggregate counters of which tools and routes are
+queried. For the pricing tools, the route and search parameters are also recorded
+individually in our fare-pricing system's request log, so we can investigate
+pricing problems and understand demand. Those records contain no names, contact
+details, or payment information.</li>
 <li><strong>API key registration.</strong> If you request an API key via
 <code>POST /register</code>, we store the email address and optional name you provide.</li>
 <li><strong>Trip ideas.</strong> If an agent calls <code>trip_idea_create</code> (API-key
@@ -49,12 +53,18 @@ can follow up. Only submit this data with the customer's knowledge and consent.<
 </ul>
 
 <h2>Who receives the data</h2>
-<p>Data stays within AirTreks. Trip ideas go to AirTreks' customer-relationship
-system for consultant follow-up. The server is hosted on Railway (United States).</p>
+<p>Data stays within AirTreks, with one exception. To return a live fare, the
+route, dates, cabin and traveller counts you send are passed to the global flight
+distribution system AirTreks books through — the same one a travel agent queries.
+No names, contact details, or payment information are sent with a fare search.
+Trip ideas go to AirTreks' customer-relationship system for consultant follow-up.
+The server is hosted on Railway (United States).</p>
 
 <h2>Retention</h2>
-<p>Usage statistics are stored as daily aggregates for service operation. API key
-records are kept until you ask us to remove them. Trip-idea data is handled under
+<p>Usage statistics for the routing tools are stored as daily aggregates.
+Pricing-request logs are kept per request, under AirTreks' internal data
+practices, and hold only search parameters — no personal details. API key records
+are kept until you ask us to remove them. Trip-idea data is handled under
 AirTreks' customer data practices.</p>
 
 <h2>Your choices</h2>
