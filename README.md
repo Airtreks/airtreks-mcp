@@ -34,12 +34,12 @@ Add to `.cursor/mcp.json` (or Cursor Settings → MCP → Add new server):
 }
 ```
 
-To use the consultant handoff (`trip_idea_create`), append your API key to the
-URL — hosted clients such as claude.ai connectors cannot send custom headers:
+No API key is needed for any tool, the consultant handoff included. A key is
+optional and only raises your daily limit; append it to the URL if your client
+cannot send custom headers, as claude.ai connectors cannot:
 
 ```
 https://mcp.airtreks.com/mcp?key=at_your_key
-
 ```
 
 ### ChatGPT
@@ -122,7 +122,9 @@ Those are honest ranges, not quotes - exact pricing on a 7-leg mixed-carrier iti
 
 ## Tools
 
-### Free (no API key, 100 req/day)
+All tools are free and need no API key — 100 requests/day per IP.
+
+### Routing
 
 | Tool | Description |
 |------|-------------|
@@ -142,13 +144,15 @@ Those are honest ranges, not quotes - exact pricing on a 7-leg mixed-carrier iti
 | `itinerary_quote` | Prices a whole multi-stop trip and returns several ways to ticket it — cheapest, fastest, fewest stops — with the tickets each one is built from. Takes about a minute, so it returns a reference immediately |
 | `itinerary_quote_status` | Fetches an `itinerary_quote` result by its reference. Free to poll |
 
-### API key required
+### Consultant handoff
 
 | Tool | Description |
 |------|-------------|
 | `trip_idea_create` | Hand off to an AirTreks human travel consultant - submits the trip request with the full routing analysis attached |
 
-Get a key: `POST https://mcp.airtreks.com/register` with `{"email": "you@example.com"}`
+Submits real customer contact details, so only call it with the customer's
+knowledge and consent. Repeat submissions of the same email + route inside 24
+hours return the existing trip request rather than creating a duplicate.
 
 ## Why this data is different
 
@@ -175,9 +179,8 @@ Full OpenAPI 3.1 spec: [`https://mcp.airtreks.com/openapi.json`](https://mcp.air
 
 ## Rate limits
 
-- **Free:** 100 requests/day per IP, no key needed
-- **Registered:** higher limits with an API key (`X-API-Key` header)
-- `trip_idea_create` requires a key
+- **Free:** 100 requests/day per IP, no key needed — every tool, `trip_idea_create` included
+- **Registered:** higher limits with an API key (`X-API-Key` header, or `?key=` for clients that cannot set headers)
 
 ## Endpoints
 
@@ -187,7 +190,7 @@ Full OpenAPI 3.1 spec: [`https://mcp.airtreks.com/openapi.json`](https://mcp.air
 | `/api/{tool}` | REST twin of each tool (POST, JSON body) |
 | `/openapi.json` | OpenAPI 3.1 spec for the REST surface |
 | `/health` | Health check |
-| `/register` | Get an API key (POST) |
+| `/register` | Get an API key for a higher rate limit (POST) |
 | `/privacy` | Privacy policy |
 | `/` | Server info |
 

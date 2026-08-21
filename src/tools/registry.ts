@@ -28,7 +28,13 @@ export interface ToolDef {
   schema: z.ZodRawShape;
   fn: (args: any) => any;
   readOnly: boolean;
-  /** Requires an X-API-Key (lead-gen tools). */
+  /**
+   * Requires an X-API-Key. No tool sets this today: the consultant handoff was
+   * the only one gated, and it is now open to anonymous callers like the rest.
+   * The field stays as the seam for re-gating a tool without re-plumbing both
+   * transports — index.ts hides such a tool from unkeyed MCP sessions and
+   * rest.ts 401s it, purely off this flag.
+   */
   requiresKey: boolean;
   /**
    * Upstream searches one call costs us. 0 for the bundled-data tools and for
@@ -59,7 +65,7 @@ const RAW_TOOLS: ToolDef[] = [
     schema: tripIdeaCreateSchema,
     fn: tripIdeaCreate,
     readOnly: false,
-    requiresKey: true,
+    requiresKey: false,
   },
   {
     name: "route_estimate",
