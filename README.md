@@ -154,10 +154,10 @@ Get a key: `POST https://mcp.airtreks.com/register` with `{"email": "you@example
 
 AirTreks has built complex multi-stop itineraries since 1987. This server exposes what that history taught us:
 
-- **53 dead legs** - city pairs that look bookable but fail on alliance fares, learned from 1,400+ real fare-construction failures
+- **Dead legs** - city pairs that look bookable but fail on alliance fares, learned from 1,400+ real fare-construction failures
 - **Bookability rates by leg count** - measured, not estimated (91% at 3-4 legs, 61% at 5-6, 6% at 7+)
-- **Poison carriers and hub fixes** - which airline combinations break ticketing and what to route instead
-- **20 proven routing templates** from top AirTreks bookings
+- **Poison carriers and hub fixes** - we know what airline combinations break ticketing and what to route instead
+- **Proven routing templates** from working with Multi-Stop and Around the World Intineraries for inviduals, families and large group
 
 No other flight tool returns this because no other flight tool has priced these failures.
 
