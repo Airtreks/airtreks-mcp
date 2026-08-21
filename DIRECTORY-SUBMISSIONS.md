@@ -4,13 +4,13 @@
 
 | Field | Value |
 |-------|-------|
-| Name | AirTreks MCP (`io.github.SEKeener/airtreks-mcp`) |
+| Name | AirTreks MCP (`io.github.Airtreks/airtreks-mcp`) |
 | One-sentence description | Multi-city flight routing intelligence — plan RTW trips, validate alliances, get carrier picks. |
 | Long description | Complex multi-city flight routing intelligence for AI agents, with real prices. 10 tools: plan round-the-world trips across 60+ carriers, validate Star Alliance and oneworld routings, get segment-by-segment carrier recommendations, identify surface sector savings, price a route from AirTreks fare history, quote live fares for a specific itinerary, price a whole multi-stop trip across several tickets, and hand off to human consultants. No API key needed (100 req/day free). |
 | Tool list | Routing: `plan_route`, `route_validate`, `route_suggest`, `hub_check`, `fare_product_match`, `custom_route_build`. Pricing: `route_estimate`, `fare_quote`, `itinerary_quote`, `itinerary_quote_status`. All ten free; `trip_idea_create` needs an API key. |
 | Transport | Streamable HTTP at `https://mcp.airtreks.com/mcp`; stdio via `npx airtreks-mcp` |
 | Auth model | Free tier: none, 100 req/day per IP. API key (for `trip_idea_create` + higher limits): `POST https://mcp.airtreks.com/register` |
-| Repo | https://github.com/Airtreks/airtreks-mcp — note the MCP Registry namespace is still `io.github.SEKeener/airtreks-mcp`, and `server.json` keeps the old URL to match it. Changing the namespace registers a *different* server rather than renaming this one, so it needs a deliberate decision plus a publish from that GitHub identity. The old URL 301-redirects, so nothing is broken. |
+| Repo | https://github.com/Airtreks/airtreks-mcp — note the MCP Registry namespace is still `io.github.Airtreks/airtreks-mcp`, and `server.json` keeps the old URL to match it. Changing the namespace registers a *different* server rather than renaming this one, so it needs a deliberate decision plus a publish from that GitHub identity. The old URL 301-redirects, so nothing is broken. |
 | Homepage | https://airtreks.com (server: https://mcp.airtreks.com) |
 | Icon (PNG 512, light) | https://airtreks.com/brand/airtreks-icon-512.png |
 | Icon (PNG 512, dark) | https://airtreks.com/brand/airtreks-icon-dark-512.png |
@@ -103,7 +103,7 @@ Sean-interactive steps, in order:
 
 ## Official MCP Registry
 
-Published 2026-07-13 as `io.github.SEKeener/airtreks-mcp` v1.0.2 (isLatest, active) with the streamable-http remote and the 4 canonical icons. To publish a new version: bump `version` in `server.json` (registry rejects duplicates), then `mcp-publisher login github && mcp-publisher publish` from the repo root.
+Published 2026-07-13 as `io.github.Airtreks/airtreks-mcp` v1.0.2 (isLatest, active) with the streamable-http remote and the 4 canonical icons. To publish a new version: bump `version` in `server.json` (registry rejects duplicates), then `mcp-publisher login github && mcp-publisher publish` from the repo root.
 
 ---
 
