@@ -39,8 +39,8 @@ pricing problems and understand demand. Those records contain no names, contact
 details, or payment information.</li>
 <li><strong>API key registration.</strong> If you request an API key via
 <code>POST /register</code>, we store the email address and optional name you provide.</li>
-<li><strong>Trip ideas.</strong> If an agent calls <code>trip_idea_create</code> (API-key
-tier only), the customer contact details (email, name, phone) and trip details in
+<li><strong>Trip ideas.</strong> If an agent calls <code>trip_idea_create</code>, the
+customer contact details (email, name, phone) and trip details in
 that request are forwarded to AirTreks' booking system so a human travel consultant
 can follow up. Only submit this data with the customer's knowledge and consent.</li>
 </ul>

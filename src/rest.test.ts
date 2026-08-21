@@ -28,11 +28,11 @@ test("openapi request schemas come from the zod shapes", () => {
   assert.ok(!("$schema" in schema));
 });
 
-test("openapi marks trip_idea_create as key-gated", () => {
+test("openapi marks every tool public, trip_idea_create included", () => {
   const doc: any = buildOpenApiDoc();
   const op = doc.paths["/api/trip_idea_create"].post;
-  assert.deepEqual(op.security, [{ ApiKeyAuth: [] }]);
-  assert.ok(op.responses["401"]);
+  assert.deepEqual(op.security, []);
+  assert.ok(!op.responses["401"]);
   assert.deepEqual(doc.paths["/api/plan_route"].post.security, []);
 });
 
@@ -60,8 +60,15 @@ test("executeRestTool 400s invalid arguments with field-level issues", async () 
   assert.ok(issues.some((i: any) => i.path === "cities"));
 });
 
-test("executeRestTool 401s trip_idea_create without an API key", async () => {
+// The handoff is no longer key-gated, so an unkeyed call has to reach argument
+// validation instead of being turned away at the door. These args are
+// deliberately incomplete: the 400 proves the gate is gone without the test
+// reaching the trip backend.
+test("executeRestTool lets trip_idea_create through without an API key", async () => {
   const result = await executeRestTool("trip_idea_create", { email: "a@b.com", cities: ["LAX", "NRT", "LAX"] }, false);
-  assert.equal(result.status, 401);
-  assert.match((result.body as any).register, /\/register/);
+  assert.notEqual(result.status, 401);
+  assert.equal(result.status, 400);
+  const issues = (result.body as any).issues;
+  assert.ok(issues.some((i: any) => i.path === "name"));
+  assert.ok(issues.some((i: any) => i.path === "dates"));
 });
