@@ -6,7 +6,7 @@
     "type": "git",
     "url": "git+https://github.com/Airtreks/airtreks-mcp.git"
   },
-  "mcpName": "io.github.SEKeener/airtreks-mcp",
+  "mcpName": "io.github.Airtreks/airtreks-mcp",
   "homepage": "https://mcp.airtreks.com",
   "type": "module",
   "bin": {

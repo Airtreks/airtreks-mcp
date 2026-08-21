@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.SEKeener/airtreks-mcp",
+  "name": "io.github.Airtreks/airtreks-mcp",
   "title": "AirTreks MCP",
   "description": "Multi-city flight routing intelligence \u2014 plan RTW trips, validate alliances, get carrier picks.",
   "websiteUrl": "https://airtreks.com",
@@ -39,7 +39,7 @@
     }
   ],
   "repository": {
-    "url": "https://github.com/SEKeener/airtreks-mcp",
+    "url": "https://github.com/Airtreks/airtreks-mcp",
     "source": "github"
   },
   "version": "1.2.0",
