@@ -1,6 +1,7 @@
 name: Release
 
-# Publishes the stdio package to npm when a v* tag is pushed, e.g.
+# Publishes the stdio package to npm and the server.json to the MCP Registry
+# when a v* tag is pushed, e.g.
 #   git tag v1.1.2 && git push origin v1.1.2
 #
 # Auth is npm trusted publishing (OIDC), not a stored token. The previous local
@@ -52,3 +53,37 @@ jobs:
       # No NODE_AUTH_TOKEN: the OIDC exchange supplies credentials, and
       # provenance is attested from the same identity.
       - run: npm publish --provenance --access public
+
+      # npm's publish is asynchronous. The write lands at once but the read
+      # replicas trail it by ~5 minutes (measured at 5:00 on v1.2.1 and 5:37 on
+      # v1.2.2). The MCP Registry proves package ownership by fetching this
+      # exact version and matching its mcpName, so publishing straight through
+      # would race a tarball npm is not serving yet and fail the ownership
+      # check on a release that is otherwise fine.
+      - name: Wait for npm to serve the new version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          for i in $(seq 1 40); do
+            if curl -sfo /dev/null "https://registry.npmjs.org/airtreks-mcp/$VERSION"; then
+              echo "airtreks-mcp@$VERSION served after $((i * 15))s"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::airtreks-mcp@$VERSION still not served after 10 minutes"
+          exit 1
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      # OIDC grants io.github.<repository_owner>/* — io.github.Airtreks/* from
+      # this repo. That is the whole reason to automate it: every manual publish
+      # depended on which gh account happened to be active and on the publisher's
+      # org membership being visible to the registry's OAuth app, and a private
+      # membership silently yields a personal-namespace token that 403s. None of
+      # that applies here, and there is no registry token to store or rotate.
+      - name: Publish to the MCP Registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
