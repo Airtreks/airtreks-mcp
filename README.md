@@ -192,6 +192,7 @@ Full OpenAPI 3.1 spec: [`https://mcp.airtreks.com/openapi.json`](https://mcp.air
 | `/health` | Health check |
 | `/register` | Get an API key for a higher rate limit (POST) |
 | `/privacy` | Privacy policy |
+| `/favicon.ico`, `/favicon.svg` | AirTreks mark — the icon AI directories show for this server |
 | `/` | Server info |
 
 ## License

@@ -20,6 +20,7 @@ import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } 
 import { lookupKey, registerKey, listKeys, revokeKey, revokeKeysByEmail, apiKeyFromRequest } from "./lib/api-keys.js";
 import { TOOLS, normalizeCityArgs } from "./tools/registry.js";
 import { handleRest } from "./rest.js";
+import { handleFavicon } from "./favicon.js";
 
 // Served at /.well-known/mcp/server.json for Registry auto-discovery. Read once
 // at startup; ../server.json resolves to the repo root (dev) and /app (Docker).
@@ -125,6 +126,9 @@ async function startHttp() {
       res.end(serverManifest);
       return;
     }
+
+    // Favicon — the Claude directory reads a listing's icon from here (AIR-742)
+    if (handleFavicon(req, res, url)) return;
 
     // Parallel REST surface: GET /openapi.json + POST /api/{tool} (AIR-461)
     if (await handleRest(req, res, url)) return;
