@@ -28,6 +28,10 @@ export interface CreateTripIdeaOpts {
   flexibleDates?: boolean;
   /** Question text -> [answer], the backend wire format. */
   questionsAnswers?: Record<string, string[]>;
+  /** Channel the request came through, lowercase (e.g. "chatgpt"); already cleaned. */
+  source?: string;
+  /** Finer detail on the channel (e.g. the app name); already cleaned. */
+  sourceDetail?: string;
 }
 
 export interface TripBackend {
