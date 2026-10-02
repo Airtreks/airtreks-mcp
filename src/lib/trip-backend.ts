@@ -41,7 +41,7 @@ export interface TripBackend {
   createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: number | string; raw: any }>;
   /** The live planning questionnaire (uncached; tp-questions.ts caches). */
   getPlanningQuestions(): Promise<TpQuestion[]>;
-  /** Auto-login link into the customer's trip page; null when unavailable. */
+  /** Link to the customer's trip page; null when unavailable. No longer called by trip_idea_create. */
   getTripLink(tripRequestId: number | string): Promise<string | null>;
 }
 
@@ -60,7 +60,7 @@ const HOSTED_API = process.env.AIRTREKS_API_URL || "https://mcp.airtreks.com";
 
 /**
  * Public-package mode: relay the tool call to the hosted API, which runs the
- * full pipeline (validation, questionnaire, dedupe, submission, trip link).
+ * full pipeline (validation, questionnaire, dedupe, submission).
  * Requires the caller's own AirTreks API key (the same key remote MCP users
  * send as X-API-Key), provided via AIRTREKS_API_KEY.
  */
