@@ -139,3 +139,57 @@ test("an unparseable questionsAnswers string is treated as unanswered, not a cra
   assert.match(result.error!, /planning questions/);
   assert.equal((result as any).questions.length, 2);
 });
+
+// AIR-1108: attribution rides through to the backend, cleaned, and never
+// blocks a lead. A capturing backend stands in for the hosted one.
+async function submitCapturing(extra: Record<string, unknown>, email: string) {
+  const { getTripBackend } = await import("../lib/trip-backend.js");
+  const saved = getTripBackend();
+  let sent: any = null;
+  setTripBackend({
+    isConfigured: () => true,
+    createTripIdea: async (opts) => { sent = opts; return { id: 4242, raw: {} }; },
+    getPlanningQuestions: async () => [],
+    getTripLink: async () => null,
+  });
+  try {
+    const result = await tripIdeaCreate({
+      email,
+      name: "Source Traveler",
+      cities: ["SFO", "NRT", "BKK", "SFO"],
+      dates: ["2027-02-01", "2027-02-08", "2027-02-15"],
+      questionsAnswers: VALID_ANSWERS,
+      ...extra,
+    });
+    return { result, sent };
+  } finally {
+    setTripBackend(saved);
+  }
+}
+
+test("source and sourceDetail reach the backend, source lowercased", async () => {
+  const { result, sent } = await submitCapturing({ source: "  ChatGPT ", sourceDetail: "Trip Pricer" }, "src1@example.com");
+  assert.equal(result.success, true);
+  assert.equal(sent.source, "chatgpt");
+  assert.equal(sent.sourceDetail, "Trip Pricer");
+});
+
+test("without a source the lead is still created, with no attribution", async () => {
+  const { result, sent } = await submitCapturing({}, "src2@example.com");
+  assert.equal(result.success, true);
+  assert.equal(sent.source, undefined);
+  assert.equal(sent.sourceDetail, undefined);
+});
+
+test("placeholder and blank attribution is dropped, not sent and not an error", async () => {
+  const { result, sent } = await submitCapturing({ source: "Unknown", sourceDetail: "   " }, "src3@example.com");
+  assert.equal(result.success, true);
+  assert.equal(sent.source, undefined);
+  assert.equal(sent.sourceDetail, undefined);
+});
+
+test("an over-long source is truncated rather than failing the lead", async () => {
+  const { result, sent } = await submitCapturing({ source: "x".repeat(500) }, "src4@example.com");
+  assert.equal(result.success, true);
+  assert.equal(sent.source.length, 100);
+});

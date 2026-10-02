@@ -28,7 +28,25 @@ export const tripIdeaCreateSchema = {
 
   // The Trip Planner questionnaire — dynamic, served by the backend (AIR-786)
   questionsAnswers: z.union([z.record(z.string(), z.string()), z.string()]).optional().describe("The customer's answers to AirTreks' planning questions, keyed by question name (e.g. {\"guidance\": \"I want expert guidance from humans\"}). A JSON-encoded string of the same object is also accepted. Required, but don't guess the questions: call once without this — the response lists the current questions and their options to ask the customer."),
+
+  // Attribution — which channel the request came through (AIR-1108)
+  source: z.string().optional().describe("The AI platform or app this conversation is running in, lowercase (e.g. 'chatgpt', 'claude', 'perplexity'). Only tells AirTreks which channel the request came through — never put customer details here. Omit it if you don't know."),
+  sourceDetail: z.string().optional().describe("Finer detail on source, such as the app or integration name (e.g. 'trip-pricer'). Never put customer details here."),
 };
+
+// Attribution must never cost a lead (AIR-1108), so bad values are dropped,
+// not rejected. Same cleaning as Trip Planner's attribution.ts: trim, drop
+// placeholders a model sends when it doesn't know. Capped well inside the
+// 255-char Kite tracking columns so a pasted sentence cannot fail the insert.
+const ATTRIBUTION_PLACEHOLDERS = new Set(["empty", "null", "undefined", "none", "unknown", "n/a", "[object object]"]);
+const ATTRIBUTION_MAX_LENGTH = 100;
+
+function cleanAttribution(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const cleaned = value.trim().slice(0, ATTRIBUTION_MAX_LENGTH).trim();
+  if (!cleaned || ATTRIBUTION_PLACEHOLDERS.has(cleaned.toLowerCase())) return undefined;
+  return cleaned;
+}
 
 export async function tripIdeaCreate(args: {
   email: string;
@@ -44,6 +62,8 @@ export async function tripIdeaCreate(args: {
   notes?: string;
   agentContext?: string;
   questionsAnswers?: Record<string, string> | string;
+  source?: string;
+  sourceDetail?: string;
 }) {
   // Public-package mode (AIR-803): no backend injected — relay the call to
   // the hosted API, which runs this same pipeline server-side.
@@ -56,6 +76,7 @@ export async function tripIdeaCreate(args: {
     email, name, phone,
     cities, dates, passengers = 1, cabin = "economy", budget,
     flexibleDates, preferences, notes, agentContext, questionsAnswers,
+    source, sourceDetail,
   } = args;
 
   // A lead is only created once all needed information exists (AIR-786).
@@ -235,6 +256,10 @@ export async function tripIdeaCreate(args: {
       notes: noteLines.join("\n"),
       flexibleDates,
       questionsAnswers: questionsAnswersPayload,
+      // Lowercased like Trip Planner's utm_source, so "ChatGPT" and "chatgpt"
+      // report as one channel.
+      source: cleanAttribution(source)?.toLowerCase(),
+      sourceDetail: cleanAttribution(sourceDetail),
     });
 
     if (result.id) recordSubmission(email, cities, result.id);
