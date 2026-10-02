@@ -152,7 +152,6 @@ export async function tripIdeaCreate(args: {
       tripIdeaId: recent.tripIdeaId,
       message: `This trip was already submitted as trip request #${recent.tripIdeaId} — an AirTreks travel consultant already has it. No new request was created.`,
       route: cities.map((c) => c.toUpperCase()).join(" -> "),
-      viewTripUrl: await backend.getTripLink(recent.tripIdeaId).catch(() => null),
     };
   }
 
@@ -267,10 +266,7 @@ export async function tripIdeaCreate(args: {
     // Solutions auto-created and emailed when the lead qualified (AIR-786).
     const solutionIds = Array.isArray(result.raw?.data?.solutionIds) ? result.raw.data.solutionIds : [];
 
-    // Accounts auto-login link into the customer's Trip Planner trip —
-    // best-effort, the lead exists either way.
-    const viewTripUrl = result.id ? await backend.getTripLink(result.id).catch(() => null) : null;
-
+    // No trip link in the response: AirTreks emails the customer theirs.
     return {
       success: true,
       tripIdeaId: result.id,
@@ -278,10 +274,6 @@ export async function tripIdeaCreate(args: {
         ? `Trip request #${result.id} received by AirTreks — ${solutionIds.length} priced itinerary option(s) were automatically prepared and emailed to the customer. A travel consultant will follow up.`
         : `Trip request #${result.id} received by AirTreks. A travel consultant will review your ${cities.length - 1}-leg itinerary and reach out within 1 business day.`,
       route: cities.map((c) => c.toUpperCase()).join(" -> "),
-      viewTripUrl,
-      viewTripUrlNote: viewTripUrl
-        ? "Share this link with the customer — it signs them straight into their trip on AirTreks Trip Planner to view itinerary options and prices."
-        : undefined,
       autoSolutionsSent: solutionIds.length || undefined,
       consultant: "A consultant will be assigned based on route expertise and availability.",
       whatHappensNext: [

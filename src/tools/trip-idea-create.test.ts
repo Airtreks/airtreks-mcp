@@ -146,11 +146,12 @@ async function submitCapturing(extra: Record<string, unknown>, email: string) {
   const { getTripBackend } = await import("../lib/trip-backend.js");
   const saved = getTripBackend();
   let sent: any = null;
+  let tripLinkCalls = 0;
   setTripBackend({
     isConfigured: () => true,
     createTripIdea: async (opts) => { sent = opts; return { id: 4242, raw: {} }; },
     getPlanningQuestions: async () => [],
-    getTripLink: async () => null,
+    getTripLink: async () => { tripLinkCalls++; return "https://example.com/trip/4242"; },
   });
   try {
     const result = await tripIdeaCreate({
@@ -161,7 +162,7 @@ async function submitCapturing(extra: Record<string, unknown>, email: string) {
       questionsAnswers: VALID_ANSWERS,
       ...extra,
     });
-    return { result, sent };
+    return { result, sent, tripLinkCalls };
   } finally {
     setTripBackend(saved);
   }
@@ -192,4 +193,45 @@ test("an over-long source is truncated rather than failing the lead", async () =
   const { result, sent } = await submitCapturing({ source: "x".repeat(500) }, "src4@example.com");
   assert.equal(result.success, true);
   assert.equal(sent.source.length, 100);
+});
+
+// AIR-1113: the customer receives their trip link by email, so the tool
+// returns none, on either path, even when the backend could supply one.
+test("a new trip request returns no trip link and never asks the backend for one", async () => {
+  const { result, tripLinkCalls } = await submitCapturing({}, "nolink1@example.com");
+  assert.equal(result.success, true);
+  assert.equal(result.tripIdeaId, 4242);
+  assert.ok(!("viewTripUrl" in result));
+  assert.ok(!("viewTripUrlNote" in result));
+  assert.equal(tripLinkCalls, 0);
+});
+
+test("a duplicate submission returns no trip link and never asks the backend for one", async () => {
+  const { getTripBackend } = await import("../lib/trip-backend.js");
+  const saved = getTripBackend();
+  let tripLinkCalls = 0;
+  let created = 0;
+  setTripBackend({
+    isConfigured: () => true,
+    createTripIdea: async () => { created++; return { id: 9999, raw: {} }; },
+    getPlanningQuestions: async () => [],
+    getTripLink: async () => { tripLinkCalls++; return "https://example.com/trip/555"; },
+  });
+  try {
+    recordSubmission("nolink2@example.com", ["SFO", "LHR", "SFO"], 555);
+    const result = await tripIdeaCreate({
+      email: "nolink2@example.com",
+      name: "Repeat Traveler",
+      cities: ["SFO", "LHR", "SFO"],
+      dates: ["2027-04-01", "2027-04-15"],
+      questionsAnswers: VALID_ANSWERS,
+    });
+    assert.equal((result as any).duplicate, true);
+    assert.equal(result.tripIdeaId, 555);
+    assert.ok(!("viewTripUrl" in result));
+    assert.equal(tripLinkCalls, 0);
+    assert.equal(created, 0);
+  } finally {
+    setTripBackend(saved);
+  }
 });
