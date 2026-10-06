@@ -95,7 +95,7 @@ export async function itineraryQuote(args: {
       quoteReference: handle,
       // Spelled out because an agent that does not hold the reference cannot get
       // the answer back — there is no way to look a quote up by its question.
-      nextStep: `Pricing a trip this size takes around a minute. Call itinerary_quote_status with quoteReference "${handle}" in about ${retryAfterSeconds} seconds. Keep that reference: it is the only way to retrieve this quote.`,
+      nextStep: `Pricing a trip this size takes around a minute. Call itinerary_quote_status with quoteReference "${handle}" now; it waits for the result. Keep that reference: it is the only way to retrieve this quote.`,
       retryAfterSeconds,
     };
   } catch (err: any) {
@@ -114,9 +114,22 @@ function money(value: number | null, currency: string): string {
   return value === null ? "unpriced" : `${Math.round(value).toLocaleString("en-US")} ${currency}`;
 }
 
-export async function itineraryQuoteStatus(args: {
-  quoteReference: string;
-}): Promise<Record<string, unknown>> {
+/**
+ * How long one status call holds on to a quote that is still pricing.
+ *
+ * Answering "pending" at once assumed the caller could wait between polls, and
+ * ChatGPT cannot: it either re-polls in a tight loop or gives up, and either
+ * way the app reads as broken. So the call waits here instead. 40 seconds is
+ * what fare_quote already takes at worst, so no client sees a longer call than
+ * it does today, and it stays well under the 60-second default request timeout
+ * of the MCP TypeScript client. A minute-long quote takes one or two calls.
+ */
+export const STATUS_WAIT = { maxMs: 40_000, pollMs: 2_000 };
+
+export async function itineraryQuoteStatus(
+  args: { quoteReference: string },
+  wait: { maxMs: number; pollMs: number } = STATUS_WAIT,
+): Promise<Record<string, unknown>> {
   const backend = getPricingBackend();
   if (!backend) return forwardPricingRequest("itinerary_quote_status", args);
 
@@ -124,18 +137,23 @@ export async function itineraryQuoteStatus(args: {
     return { message: "Itinerary pricing isn't available right now.", planYourTrip: TRIP_PLANNER_URL };
   }
 
+  const deadline = Date.now() + wait.maxMs;
   let state: QuoteJobState;
-  try {
-    state = await backend.getItineraryQuote(args.quoteReference);
-  } catch (err: any) {
-    return { error: err?.message || "We couldn't retrieve that quote.", planYourTrip: TRIP_PLANNER_URL };
+  for (;;) {
+    try {
+      state = await backend.getItineraryQuote(args.quoteReference);
+    } catch (err: any) {
+      return { error: err?.message || "We couldn't retrieve that quote.", planYourTrip: TRIP_PLANNER_URL };
+    }
+    if (state.status !== "pending" || Date.now() + wait.pollMs > deadline) break;
+    await new Promise((resolve) => setTimeout(resolve, wait.pollMs));
   }
 
   if (state.status === "pending") {
     return {
       status: "pending",
       retryAfterSeconds: state.retryAfterSeconds ?? 10,
-      nextStep: `Still pricing. Call itinerary_quote_status again with the same quoteReference in about ${state.retryAfterSeconds ?? 10} seconds.`,
+      nextStep: "Still pricing. Call itinerary_quote_status again with the same quoteReference now; it waits for the result.",
     };
   }
 

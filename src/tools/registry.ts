@@ -46,6 +46,13 @@ export interface ToolDef {
    * most expensive tool draw the least budget.
    */
   upstreamCost?: number | ((args: any) => number);
+  /**
+   * What ChatGPT shows while the call runs and once it returns
+   * (`openai/toolInvocation/invoking` / `invoked`, 64 characters at most).
+   * Required, so a new tool cannot ship without one: several of these take tens
+   * of seconds, and a silent wait reads as a broken app.
+   */
+  status: { invoking: string; invoked: string };
 }
 
 const RAW_TOOLS: ToolDef[] = [
@@ -57,6 +64,7 @@ const RAW_TOOLS: ToolDef[] = [
     fn: planRoute,
     readOnly: true,
     requiresKey: false,
+    status: { invoking: "Working out how to ticket this route…", invoked: "Route plan ready" },
   },
   {
     name: "trip_idea_create",
@@ -66,6 +74,7 @@ const RAW_TOOLS: ToolDef[] = [
     fn: tripIdeaCreate,
     readOnly: false,
     requiresKey: false,
+    status: { invoking: "Checking the trip request with AirTreks…", invoked: "AirTreks responded" },
   },
   {
     name: "route_estimate",
@@ -75,6 +84,7 @@ const RAW_TOOLS: ToolDef[] = [
     fn: routeEstimate,
     readOnly: true,
     requiresKey: false,
+    status: { invoking: "Looking up what travellers paid on this route…", invoked: "Checked AirTreks fare history" },
   },
   {
     name: "fare_quote",
@@ -84,17 +94,19 @@ const RAW_TOOLS: ToolDef[] = [
     fn: fareQuote,
     readOnly: true,
     requiresKey: false,
+    status: { invoking: "Checking live fares, up to 40 seconds…", invoked: "Live fares checked" },
     // One live provider search per call.
     upstreamCost: 1,
   },
   {
     name: "itinerary_quote",
     title: "Price a Whole Multi-Stop Trip",
-    description: "Price a complete multi-stop or round-the-world trip and get back several ways of ticketing it — cheapest, fastest, fewest stops — with the actual tickets each one is built from. Use this for trips that will not go on a single fare, which is most itineraries with 3+ stops; use fare_quote when you want one specific itinerary on one ticket. It takes about a minute, so it returns a quoteReference immediately and you fetch the result with itinerary_quote_status. Keep that reference — it is the only way to retrieve the quote.",
+    description: "Price a complete multi-stop or round-the-world trip and get back several ways of ticketing it — cheapest, fastest, fewest stops — with the actual tickets each one is built from. Use this for trips that will not go on a single fare, which is most itineraries with 3+ stops; use fare_quote when you want one specific itinerary on one ticket. It takes about a minute, so it returns a quoteReference immediately; call itinerary_quote_status with it straight away, and that call waits for the result. Keep that reference — it is the only way to retrieve the quote.",
     schema: itineraryQuoteSchema,
     fn: itineraryQuote,
     readOnly: true,
     requiresKey: false,
+    status: { invoking: "Starting to price the whole trip…", invoked: "Pricing started, about a minute" },
     // Charged per call from the leg count: this fans out across many provider
     // searches, so a flat cost would let the priciest tool draw the least budget.
     upstreamCost: estimateSearches,
@@ -102,11 +114,12 @@ const RAW_TOOLS: ToolDef[] = [
   {
     name: "itinerary_quote_status",
     title: "Retrieve a Multi-Stop Trip Quote",
-    description: "Fetch the result of an itinerary_quote using the quoteReference it returned. Returns status 'pending' with how long to wait, or the finished options. Costs nothing and does no searching, so poll it rather than starting a second quote.",
+    description: "Fetch the result of an itinerary_quote using the quoteReference it returned. Call it straight away: it waits up to about 40 seconds for a quote that is still pricing, then returns the finished options, or status 'pending' if the quote needs one more call. Costs nothing and does no searching, so call it again rather than starting a second quote.",
     schema: itineraryQuoteStatusSchema,
     fn: itineraryQuoteStatus,
     readOnly: true,
     requiresKey: false,
+    status: { invoking: "Pricing the trip, about a minute in all…", invoked: "Trip pricing checked" },
   },
   {
     name: "route_validate",
@@ -116,6 +129,7 @@ const RAW_TOOLS: ToolDef[] = [
     fn: routeValidate,
     readOnly: true,
     requiresKey: false,
+    status: { invoking: "Checking the routing against fare rules…", invoked: "Routing checked" },
   },
   {
     name: "route_suggest",
@@ -125,6 +139,7 @@ const RAW_TOOLS: ToolDef[] = [
     fn: routeSuggest,
     readOnly: true,
     requiresKey: false,
+    status: { invoking: "Finding proven multi-stop routings…", invoked: "Routings suggested" },
   },
   {
     name: "hub_check",
@@ -134,6 +149,7 @@ const RAW_TOOLS: ToolDef[] = [
     fn: hubCheck,
     readOnly: true,
     requiresKey: false,
+    status: { invoking: "Checking hub connections…", invoked: "Connections checked" },
   },
   {
     name: "fare_product_match",
@@ -143,6 +159,7 @@ const RAW_TOOLS: ToolDef[] = [
     fn: fareProductMatch,
     readOnly: true,
     requiresKey: false,
+    status: { invoking: "Matching the right fare type…", invoked: "Fare type matched" },
   },
   {
     name: "custom_route_build",
@@ -152,6 +169,7 @@ const RAW_TOOLS: ToolDef[] = [
     fn: customRouteBuild,
     readOnly: true,
     requiresKey: false,
+    status: { invoking: "Splitting the route into tickets…", invoked: "Ticket breakdown ready" },
   },
 ];
 
@@ -162,6 +180,33 @@ export function normalizeCityArgs(args: any): any {
   if (typeof args?.from === "string") args.from = normalizeCode(args.from);
   if (typeof args?.to === "string") args.to = normalizeCode(args.to);
   return args;
+}
+
+// The routing tools are pure lookups against bundled data, and the pricing tools
+// read AirTreks' own fare history and engine: a bounded backend, which OpenAI's
+// definition does not count as open-world. trip_idea_create is the exception: it
+// submits a trip request. ChatGPT requires all three hints to be present, so
+// destructiveHint is spelled out even where readOnlyHint already implies it.
+const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
+const LEAD_TOOL = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true };
+
+export function toolAnnotations(tool: ToolDef) {
+  return tool.readOnly ? { ...READ_ONLY } : { ...LEAD_TOOL };
+}
+
+/**
+ * The Apps SDK fields on a tool descriptor. Other clients ignore them.
+ * `securitySchemes` lives in `_meta` because the MCP SDK's registerTool drops a
+ * top-level one, and OpenAI reads the `_meta` copy. Declared per tool, as their
+ * auth guide asks, and "noauth" because every tool is open; a tool re-gated
+ * through requiresKey would need its own scheme here.
+ */
+export function toolMeta(tool: ToolDef): Record<string, unknown> {
+  return {
+    securitySchemes: [{ type: "noauth" }],
+    "openai/toolInvocation/invoking": tool.status.invoking,
+    "openai/toolInvocation/invoked": tool.status.invoked,
+  };
 }
 
 /** True for tools where one call reaches a paid provider. */

@@ -142,7 +142,7 @@ All tools are free and need no API key — 100 requests/day per IP.
 | `route_estimate` | Price range for a route from AirTreks fare history. No dates needed, answers in about a quarter of a second — the right tool when someone asks "what will this cost?" before anything is decided |
 | `fare_quote` | Live fares for one specific itinerary on specific dates, priced as a single ticket |
 | `itinerary_quote` | Prices a whole multi-stop trip and returns several ways to ticket it — cheapest, fastest, fewest stops — with the tickets each one is built from. Takes about a minute, so it returns a reference immediately |
-| `itinerary_quote_status` | Fetches an `itinerary_quote` result by its reference. Free to poll |
+| `itinerary_quote_status` | Fetches an `itinerary_quote` result by its reference, waiting up to about 40 seconds for one still pricing. Free to call again |
 
 ### Consultant handoff
 

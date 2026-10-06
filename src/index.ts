@@ -18,7 +18,7 @@ const PKG_VERSION: string = JSON.parse(
 ).version || "0.0.0";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
 import { lookupKey, registerKey, listKeys, revokeKey, revokeKeysByEmail, apiKeyFromRequest } from "./lib/api-keys.js";
-import { TOOLS, normalizeCityArgs } from "./tools/registry.js";
+import { TOOLS, normalizeCityArgs, toolAnnotations, toolMeta } from "./tools/registry.js";
 import { handleRest } from "./rest.js";
 import { handleFavicon } from "./favicon.js";
 
@@ -45,11 +45,6 @@ function tracked(name: string, fn: (args: any) => any) {
   };
 }
 
-// All routing tools are pure lookups against bundled data (readOnlyHint, closed
-// world). trip_idea_create is the exception: it submits a trip request.
-const READ_ONLY = { readOnlyHint: true, openWorldHint: false };
-const LEAD_TOOL = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true };
-
 function registerTools(server: McpServer, includeLeadTools = false) {
   for (const tool of TOOLS) {
     if (tool.requiresKey && !includeLeadTools) continue;
@@ -59,7 +54,8 @@ function registerTools(server: McpServer, includeLeadTools = false) {
         title: tool.title,
         description: tool.description,
         inputSchema: tool.schema,
-        annotations: tool.readOnly ? { ...READ_ONLY } : { ...LEAD_TOOL },
+        annotations: toolAnnotations(tool),
+        _meta: toolMeta(tool),
       },
       tracked(tool.name, tool.fn)
     );
