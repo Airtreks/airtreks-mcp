@@ -1,0 +1,103 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "airtreks",
+  "version": "1.0.0",
+  "description": "Plan and price multi-stop and round-the-world flight itineraries with AirTreks: route planning, price ranges from past AirTreks bookings, live fares, whole-trip pricing across several tickets, and a handoff to a human travel consultant.",
+  "author": {
+    "name": "AirTreks",
+    "url": "https://airtreks.com"
+  },
+  "homepage": "https://mcp.airtreks.com",
+  "repository": "https://github.com/Airtreks/airtreks-mcp",
+  "license": "AGPL-3.0-only",
+  "keywords": ["travel", "flights", "round-the-world", "multi-city", "airfare"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "AirTreks",
+        "shortDescription": "Plan & price multi-stop trips",
+        "longDescription": "AirTreks plans and prices flight trips with several stops: round-the-world tickets, multi-city itineraries, open jaws and stopovers. It is for travellers working out where a trip can go, how it should be ticketed, and roughly what it will cost.\n\nWhat it can do:\n- Estimate the per-person price of a route from what AirTreks customers paid on the same routes, before you have dates.\n- Plan a multi-stop route: compare a Star Alliance round-the-world fare, a oneworld round-the-world fare and a custom build mixing airlines, then recommend one and say why.\n- Check a routing against airline fare rules, suggest proven routings by region, and check connections between two airports.\n- Show live fares for one itinerary on set dates.\n- Price a whole multi-stop trip on set dates and return several ways to ticket it, such as lowest price, shortest travelling time and fewest stops, with the flights in each ticket. This takes about a minute.\n- Send your trip to an AirTreks travel consultant, who follows up by email to quote and book it. This shares your name, email and trip details with AirTreks, and only happens when you ask for it.\n\nLimitations:\n- Price ranges come from past bookings and are not quotes. Live fares can change before booking.\n- It does not book flights, hold seats or take payment. Booking is done with an AirTreks consultant.\n- It covers flights only: no hotels, car hire, visas or insurance.\n- It is built for trips with several stops.",
+        "developerName": "AirTreks",
+        "category": "Travel",
+        "capabilities": [
+          "Estimate a trip's price from past bookings",
+          "Plan multi-stop and round-the-world routes",
+          "Check a routing against fare rules",
+          "Show live fares for set dates",
+          "Price a whole multi-stop trip",
+          "Send a trip request to a travel consultant"
+        ],
+        "websiteURL": "https://airtreks.com",
+        "supportURL": "https://airtreks.com/contact",
+        "privacyPolicyURL": "https://mcp.airtreks.com/privacy",
+        "termsOfServiceURL": "https://mcp.airtreks.com/terms",
+        "defaultPrompt": [
+          "How much does a round the world trip cost via Tokyo, Bangkok and London?",
+          "Plan a multi-stop trip from New York to Lisbon, Cape Town, Singapore and back.",
+          "Can I fly San Francisco, Tokyo, Bangkok, London and back on one round-the-world ticket?"
+        ],
+        "brandColor": "#00A2D9",
+        "composerIcon": "./assets/airtreks-icon-256.png",
+        "composerIconDark": "./assets/airtreks-icon-dark-256.png",
+        "logo": "./assets/airtreks-icon-512.png",
+        "logoDark": "./assets/airtreks-icon-dark-512.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Price range for a round-the-world route before the traveller has dates.",
+              "prompt": "How much does a round the world trip cost? I'm thinking Los Angeles, Tokyo, Bangkok, London and back to Los Angeles.",
+              "tools_triggered": "route_estimate",
+              "expected_behavior": "Returns a per-person price range in US dollars for LAX-NRT-BKK-LHR-LAX drawn from past AirTreks bookings (about 1,330 to 2,030 USD in economy when run on 2026-10-06), says how much booking history is behind it, and states that it is a range from past bookings, not a live quote. Asks for no dates or personal details."
+            },
+            {
+              "description": "Work out how a multi-stop trip should be ticketed.",
+              "prompt": "Plan a round-the-world trip from San Francisco through Tokyo, Bangkok and London.",
+              "tools_triggered": "plan_route",
+              "expected_behavior": "Evaluates a Star Alliance round-the-world fare, a oneworld round-the-world fare and a custom mixed-airline build for SFO-NRT-BKK-LHR-SFO, recommends one with a reason, and lists the others as alternatives. Gives routing advice only, with no prices."
+            },
+            {
+              "description": "Check whether a routing works on an alliance round-the-world fare.",
+              "prompt": "Can I fly San Francisco, Tokyo, Bangkok, London and back to San Francisco on a Star Alliance round the world ticket?",
+              "tools_triggered": "route_validate",
+              "expected_behavior": "Says the routing SFO-NRT-BKK-LHR-SFO is valid for a Star Alliance round-the-world fare, reports no rule errors, and gives its historical bookability (4 legs, about 91% when run on 2026-10-06)."
+            },
+            {
+              "description": "Live fares for one flight on a set date.",
+              "prompt": "What are the live fares from Los Angeles to Tokyo on March 10, 2027 for one adult in economy?",
+              "tools_triggered": "fare_quote",
+              "expected_behavior": "Returns several live economy fares from Los Angeles to Tokyo on 2027-03-10, each with airline, flight numbers, stops, travel time, baggage and the price for one adult in US dollars, and says fares can change before booking. Can take up to about 40 seconds."
+            },
+            {
+              "description": "Price a whole multi-stop trip on set dates.",
+              "prompt": "Price my trip: Los Angeles to Tokyo on March 10, 2027, Tokyo to Bangkok on March 20, Bangkok to London on March 30, then London back to Los Angeles on April 9. One adult, economy.",
+              "tools_triggered": "itinerary_quote, itinerary_quote_status",
+              "expected_behavior": "itinerary_quote returns a quote reference straight away, then itinerary_quote_status is called with it and waits for the result, about a minute in total over one or two calls. Returns several ways to ticket the trip, such as lowest total price, best balance, shortest travelling time and fewest stops, each with its total price, the tickets it is built from and their flights. Notes that fares can change and that separate tickets do not protect each other if a flight is missed."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Hotels are out of scope. AirTreks covers flights only, so no AirTreks tool should be called; the request belongs to general search or a hotel service.",
+              "prompt": "Find me a hotel in Paris for next weekend."
+            },
+            {
+              "description": "The plugin cannot see or change existing bookings. No AirTreks tool should be called; the assistant should say it cannot cancel bookings and point to AirTreks support at airtreks.com/contact.",
+              "prompt": "Cancel my AirTreks booking for next month."
+            },
+            {
+              "description": "The plugin cannot book or take payment and must not collect card details. The assistant should say so; it may offer to price the trip or, if the traveller asks, send a trip request to an AirTreks consultant who handles booking.",
+              "prompt": "Book the cheapest of those options for me and charge it to my credit card."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "AirTreks shows flight prices but sells nothing in the plugin and takes no payment. Booking and payment happen with an AirTreks travel consultant, outside ChatGPT."
+      },
+      "publication": {
+        "countries": [],
+        "release_notes": "First release in the plugin directory. Eleven tools for planning and pricing multi-stop and round-the-world flights: price ranges from past AirTreks bookings, route planning and fare-rule checks, live fares for one itinerary, whole-trip pricing across several tickets, and a handoff to an AirTreks travel consultant. Served from mcp.airtreks.com, server version 1.2.7."
+      }
+    }
+  }
+}

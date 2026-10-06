@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { checkRateLimit, peekRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
 import { matchPlatform, refreshOpenAIRanges, PLATFORM_SESSION_DAILY_LIMIT } from "./lib/cidr.js";
 import { PRIVACY_HTML } from "./privacy.js";
+import { TERMS_HTML } from "./terms.js";
 
 // Single version source: package.json (works from both src/ via tsx and dist/).
 const PKG_VERSION: string = JSON.parse(
@@ -21,6 +22,7 @@ import { lookupKey, registerKey, listKeys, revokeKey, revokeKeysByEmail, apiKeyF
 import { TOOLS, normalizeCityArgs, toolAnnotations, toolMeta } from "./tools/registry.js";
 import { handleRest } from "./rest.js";
 import { handleFavicon } from "./favicon.js";
+import { handleOpenAIChallenge } from "./openai-challenge.js";
 
 // Served at /.well-known/mcp/server.json for Registry auto-discovery. Read once
 // at startup; ../server.json resolves to the repo root (dev) and /app (Docker).
@@ -125,6 +127,9 @@ async function startHttp() {
 
     // Favicon — the Claude directory reads a listing's icon from here (AIR-742)
     if (handleFavicon(req, res, url)) return;
+
+    // OpenAI plugin domain verification token (AIR-1108)
+    if (handleOpenAIChallenge(req, res, url)) return;
 
     // Parallel REST surface: GET /openapi.json + POST /api/{tool} (AIR-461)
     if (await handleRest(req, res, url)) return;
@@ -315,6 +320,13 @@ async function startHttp() {
     if (url.pathname === "/privacy") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(PRIVACY_HTML);
+      return;
+    }
+
+    // Terms of use (required for the OpenAI plugin directory, AIR-1108)
+    if (url.pathname === "/terms") {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(TERMS_HTML);
       return;
     }
 
