@@ -6,6 +6,7 @@ import {
   itineraryQuoteSchema,
   itineraryQuoteStatusSchema,
   estimateSearches,
+  STATUS_WAIT,
 } from "./itinerary-quote.js";
 import { setPricingBackend, type PricingBackend, type QuoteJobState } from "../lib/pricing-backend.js";
 import { TOOLS, upstreamCostOf } from "./registry.js";
@@ -75,12 +76,46 @@ test("starting a quote returns a reference and says to keep it", async () => {
 test("a pending status tells the agent to poll, not to restart", async () => {
   const out: any = await withBackend(
     backend({ getItineraryQuote: async () => ({ status: "pending", retryAfterSeconds: 18 }) }),
-    () => itineraryQuoteStatus({ quoteReference: "y".repeat(43) }),
+    () => itineraryQuoteStatus({ quoteReference: "y".repeat(43) }, { maxMs: 0, pollMs: 0 }),
   );
 
   assert.equal(out.status, "pending");
   assert.equal(out.retryAfterSeconds, 18);
   assert.match(out.nextStep, /same quoteReference/i);
+  assert.match(out.nextStep, /now/, "a client that cannot sleep must not be told to wait first");
+});
+
+test("a status call waits for a quote that finishes while it is waiting", async () => {
+  let reads = 0;
+  const out: any = await withBackend(
+    backend({
+      getItineraryQuote: async () => (++reads < 3 ? { status: "pending", retryAfterSeconds: 10 } : READY),
+    }),
+    () => itineraryQuoteStatus({ quoteReference: "w".repeat(43) }, { maxMs: 1_000, pollMs: 5 }),
+  );
+
+  assert.equal(out.status, "ready", "one call should carry the agent through to the result");
+  assert.equal(reads, 3);
+});
+
+test("a status call stops waiting at its cap and says to call again", async () => {
+  let reads = 0;
+  const started = Date.now();
+  const out: any = await withBackend(
+    backend({ getItineraryQuote: async () => (reads++, { status: "pending", retryAfterSeconds: 10 }) }),
+    () => itineraryQuoteStatus({ quoteReference: "v".repeat(43) }, { maxMs: 30, pollMs: 10 }),
+  );
+
+  assert.equal(out.status, "pending");
+  assert.ok(reads >= 2 && reads <= 4, `polled ${reads} times inside a 30ms cap at 10ms`);
+  assert.ok(Date.now() - started < 500, "the cap must bound the call");
+});
+
+test("a status call never outlasts an MCP client's default request timeout", () => {
+  // The TypeScript MCP client gives up on a request after 60 seconds, so a wait
+  // anywhere near that would turn a slow quote into a failed call.
+  assert.ok(STATUS_WAIT.maxMs <= 45_000, `waits ${STATUS_WAIT.maxMs}ms`);
+  assert.ok(STATUS_WAIT.pollMs > 0 && STATUS_WAIT.pollMs < STATUS_WAIT.maxMs);
 });
 
 test("a ready quote presents each way of ticketing the trip", async () => {

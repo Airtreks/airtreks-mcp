@@ -67,7 +67,16 @@ Server-side prereqs are done: tool annotations (AIR-482), privacy policy at
 https://mcp.airtreks.com/privacy, and an `openai` egress rate-limit bucket seeded
 from https://openai.com/chatgpt-connectors.json and refreshed daily at runtime
 (AIR-499). Free tier is anonymous and touches no user data, so no OAuth is
-required (OpenAI allows noauth for such tools).
+required (OpenAI allows noauth for such tools). Since 1.2.6 (AIR-1108) every tool
+also carries the Apps SDK fields: `openai/toolInvocation/invoking` / `invoked`
+status text, a per-tool `securitySchemes: [{ type: "noauth" }]` in `_meta`, and
+all three annotation hints OpenAI marks required (`destructiveHint` was missing).
+
+> **Stale below (checked 2026-10-06):** OpenAI now calls these *plugins* and the
+> submission is a ZIP package with 5 positive and 3 negative test cases, a video
+> walkthrough, release notes, and four HTTPS URLs: website, support, privacy and
+> **terms of service**. Re-read https://developers.openai.com/apps-sdk/deploy/submission
+> before following the steps here.
 
 Sean-interactive steps, in order:
 
@@ -89,7 +98,7 @@ Sean-interactive steps, in order:
    - "What's the best connection between Portland and Tokyo?" — `hub_check` returns the best hub routing with proven carrier combinations (flags dead legs if any).
    - "Roughly what does LAX to Tokyo to Bangkok to London and back cost?" — `route_estimate` returns a per-person USD range from AirTreks fare history in under a second, labelled as a range from past bookings rather than a live quote.
    - "What are the actual fares LAX to Tokyo on 12 November 2026?" — `fare_quote` returns live fares with flight numbers, stops and duration, stating that availability and price can change before booking. Takes up to about 40 seconds.
-   - "Price the whole trip LAX, Tokyo, Bangkok, London, LAX for those dates" — `itinerary_quote` returns a `quoteReference` immediately with `status: "pending"`, then `itinerary_quote_status` returns several ways to ticket the trip. **This is expected two-step behaviour, not a failure** — pricing a multi-stop trip takes about a minute, which is why it is asynchronous.
+   - "Price the whole trip LAX, Tokyo, Bangkok, London, LAX for those dates" — `itinerary_quote` returns a `quoteReference` immediately with `status: "pending"`, then `itinerary_quote_status` waits for the result (up to about 40 seconds per call, so one or two calls) and returns several ways to ticket the trip. **This is expected two-step behaviour, not a failure** — pricing a multi-stop trip takes about a minute, which is why it is asynchronous.
 
    Note for the reviewer-facing description: the pricing tools return real prices, including
    per-itinerary totals. Earlier copy for this listing said the server never returns a
