@@ -170,15 +170,14 @@ submission-errors page still lists `justification_required`. Keep these ready:
 | `plan_route`, `route_validate`, `route_suggest`, `hub_check`, `fare_product_match`, `custom_route_build` | true | false | false | Computes routing advice from data bundled with the server. Stores nothing, changes nothing, contacts no one. |
 | `route_estimate` | true | false | false | Reads AirTreks' own record of past fares and returns a price range. Changes nothing. |
 | `fare_quote` | true | false | false | Looks up live fares in AirTreks' own pricing system and returns them. Holds no seats, creates no booking, sends nothing. A bounded private system, not open-ended destinations. |
-| `itinerary_quote` | true | false | false | Starts an in-memory price calculation whose only output goes back to the same caller through `itinerary_quote_status`. It holds no seats, creates no booking, and is discarded after 10 minutes. |
+| `itinerary_quote` | false | false | false | Starts a background price calculation whose only output goes back to the same caller through `itinerary_quote_status`. Not read-only because it starts a job, which the guidelines count as queuing work; the hint makes ChatGPT ask before each whole-trip quote. Not destructive: it holds no seats, creates no booking, and is discarded after 10 minutes. Not open world: it searches only AirTreks' own pricing system. |
 | `itinerary_quote_status` | true | false | false | Reads the result of a calculation started by `itinerary_quote`. Changes nothing. |
 | `trip_idea_create` | false | true | true | Creates a trip request in AirTreks' booking system so a human consultant can follow up. Destructive, because the request emails the traveller and notifies a consultant, and those sends cannot be recalled; the hint makes ChatGPT ask before the traveller's details are sent. A repeat call with the same email and route within 24 hours returns the existing request instead of a second one. Open world, because the traveller's details reach people outside the conversation. |
 
-**Known risk, not yet decided (AIR-1108):** the guidelines say to use
-`readOnlyHint: false` for "starting stateful jobs or workflows, queuing work",
-which reads on `itinerary_quote`. Changing it makes ChatGPT ask the user to
-confirm before each whole-trip quote. (`trip_idea_create` was the other one: it
-is now `destructiveHint: true`, so ChatGPT confirms before sending a trip request.)
+**Confirmation prompts (AIR-1108):** ChatGPT asks the user before two tools:
+`itinerary_quote` (it starts a background job, so it is not read-only) and
+`trip_idea_create` (`destructiveHint: true`, because the emails it triggers
+cannot be recalled). Both are deliberate, to match the guidelines' wording.
 
 ---
 
