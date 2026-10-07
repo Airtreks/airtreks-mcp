@@ -187,8 +187,13 @@ export function normalizeCityArgs(args: any): any {
 // definition does not count as open-world. trip_idea_create is the exception: it
 // submits a trip request. ChatGPT requires all three hints to be present, so
 // destructiveHint is spelled out even where readOnlyHint already implies it.
+//
+// trip_idea_create is destructive in OpenAI's sense: the request emails the
+// traveller and notifies a consultant, and those sends cannot be recalled, which
+// their guidelines count as irreversible even though the lead itself is additive.
+// The hint makes ChatGPT ask the user before sending their details to AirTreks.
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
-const LEAD_TOOL = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true };
+const LEAD_TOOL = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true };
 
 export function toolAnnotations(tool: ToolDef) {
   return tool.readOnly ? { ...READ_ONLY } : { ...LEAD_TOOL };

@@ -20,7 +20,8 @@ test("every tool carries the three hints ChatGPT requires", () => {
     for (const key of ["readOnlyHint", "destructiveHint", "openWorldHint"] as const) {
       assert.equal(typeof hints[key], "boolean", `${tool.name} ${key}`);
     }
-    assert.equal(hints.destructiveHint, false, `${tool.name} deletes nothing`);
+    // Only the consultant handoff sends anything that cannot be recalled.
+    assert.equal(hints.destructiveHint, tool.name === "trip_idea_create", tool.name);
   }
 });
 
