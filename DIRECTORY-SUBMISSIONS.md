@@ -57,56 +57,127 @@ Local stdio alternative:
 | mcpservers.org | Submitted 2026-06-25, pending review | https://mcpservers.org/submit |
 | PulseMCP | Auto-ingests from Official MCP Registry | https://www.pulsemcp.com |
 | Glama.ai | Listed (auto-indexed, 27 downloads) | https://glama.ai/mcp/servers?search=airtreks |
-| OpenAI ChatGPT Apps | Prereqs done (AIR-499); awaiting Sean: org verification + portal submission | https://platform.openai.com/plugins |
+| OpenAI plugin directory (ChatGPT + Codex) | Package ready in `chatgpt-plugin/` (AIR-1108); awaiting Sean: org verification, terms approval, video, submission | https://platform.openai.com/plugins |
 
 ---
 
-## OpenAI ChatGPT Apps directory — https://platform.openai.com/plugins (AIR-499)
+## OpenAI plugin directory (ChatGPT and Codex) — https://platform.openai.com/plugins (AIR-1108, AIR-499)
 
-Server-side prereqs are done: tool annotations (AIR-482), privacy policy at
-https://mcp.airtreks.com/privacy, and an `openai` egress rate-limit bucket seeded
-from https://openai.com/chatgpt-connectors.json and refreshed daily at runtime
-(AIR-499). Free tier is anonymous and touches no user data, so no OAuth is
-required (OpenAI allows noauth for such tools). Since 1.2.6 (AIR-1108) every tool
-also carries the Apps SDK fields: `openai/toolInvocation/invoking` / `invoked`
-status text, a per-tool `securitySchemes: [{ type: "noauth" }]` in `_meta`, and
-all three annotation hints OpenAI marks required (`destructiveHint` was missing).
+OpenAI now calls these *plugins*, and one directory serves ChatGPT and Codex. A
+submission is a ZIP of a plugin package plus a connected MCP server. The process
+below was read from https://developers.openai.com/plugins/deploy/submission on
+2026-10-06. Re-read it before submitting, because it has changed more than once.
 
-> **Stale below (checked 2026-10-06):** OpenAI now calls these *plugins* and the
-> submission is a ZIP package with 5 positive and 3 negative test cases, a video
-> walkthrough, release notes, and four HTTPS URLs: website, support, privacy and
-> **terms of service**. Re-read https://developers.openai.com/apps-sdk/deploy/submission
-> before following the steps here.
+**Ready on our side:**
+- Server: every tool carries the Apps SDK status text, a per-tool `noauth`
+  security scheme and all three annotation hints (1.2.6). The privacy policy is at
+  https://mcp.airtreks.com/privacy, and the anonymous `openai` egress rate-limit
+  bucket exists (AIR-499).
+- Terms of use at https://mcp.airtreks.com/terms (1.2.7). **This is a draft for
+  Sean to approve.** airtreks.com has no terms page, and the directory requires one.
+- Domain verification: `/.well-known/openai-apps-challenge` serves the
+  `OPENAI_APPS_CHALLENGE` variable (1.2.7).
+- The package itself, in [`chatgpt-plugin/`](chatgpt-plugin/):
+  - `plugin.json`: listing text, the four URLs, icons, the 5 positive and 3
+    negative review cases, release notes, `countries: []` (every country) and
+    `commerce: false`.
+  - `mcp.json`: the one server.
+  - `assets/`: the brand icons.
 
-Sean-interactive steps, in order:
+  `src/chatgpt-plugin.test.ts` checks it against the upload limits on every CI run.
 
-1. **Verify the org** at https://platform.openai.com/settings — complete *business*
-   verification to publish as AirTreks (individual verification publishes under
-   your personal name). Reviews reject unverified publishers.
-2. Confirm you have `api.apps.write` (org owners have it automatically).
-3. At https://platform.openai.com/plugins create a submission:
-   - MCP server URL: `https://mcp.airtreks.com/mcp` (no auth credentials needed)
-   - Click **Scan Tools** — it should find all 11 tools (10 free + `trip_idea_create`) with annotations
-   - Fill metadata from the canonical pack at the top of this doc (name, logo
-     512 PNG, descriptions, privacy URL `https://mcp.airtreks.com/privacy`)
-   - Country availability: all countries
-   - No UI screenshots (server has no Apps SDK UI components)
-4. Test prompts with expected responses (the review runs these; copy as-is):
-   - "Plan a round-the-world trip from San Francisco through Tokyo, Bangkok, and London" — `plan_route` returns an ordered itinerary with carrier recommendations per segment, alliance feasibility, and surface-sector suggestions. It returns **no price**; pricing is a separate set of tools.
-   - "Is SFO-NRT-BKK-LHR-SFO valid as a Star Alliance RTW routing?" — `route_validate` returns a validity verdict with rule-by-rule reasoning.
-   - "Suggest a 4-stop round-the-world routing through Asia and Europe on Star Alliance" — `route_suggest` returns up to 3 proven routing templates with bookability ratings.
-   - "What's the best connection between Portland and Tokyo?" — `hub_check` returns the best hub routing with proven carrier combinations (flags dead legs if any).
-   - "Roughly what does LAX to Tokyo to Bangkok to London and back cost?" — `route_estimate` returns a per-person USD range from AirTreks fare history in under a second, labelled as a range from past bookings rather than a live quote.
-   - "What are the actual fares LAX to Tokyo on 12 November 2026?" — `fare_quote` returns live fares with flight numbers, stops and duration, stating that availability and price can change before booking. Takes up to about 40 seconds.
-   - "Price the whole trip LAX, Tokyo, Bangkok, London, LAX for those dates" — `itinerary_quote` returns a `quoteReference` immediately with `status: "pending"`, then `itinerary_quote_status` waits for the result (up to about 40 seconds per call, so one or two calls) and returns several ways to ticket the trip. **This is expected two-step behaviour, not a failure** — pricing a multi-stop trip takes about a minute, which is why it is asynchronous.
+**Editing the package:**
+- Test cases imported from the ZIP are read-only in the dashboard. Change them in
+  `plugin.json`, rebuild and upload again.
+- Bump the package `version` (separate from the npm version) on every upload.
+- The review prompts use March 2027 dates. Refresh them before then; a test fails
+  once they are in the past.
+- No `trip_idea_create` review case, on purpose: reviewers run the cases against
+  production, so a case for it would put reviewer leads in front of consultants.
+  The tool still ships.
 
-   Note for the reviewer-facing description: the pricing tools return real prices, including
-   per-itinerary totals. Earlier copy for this listing said the server never returns a
-   per-itinerary price. That is no longer true and the wording above supersedes it.
-5. Submit for review. Timeline ~1-2 weeks. Common rejections: connection
-   failures, failed test prompts, annotation mismatches, undisclosed user data.
-6. After approval, hit **Publish** in the portal; the app becomes searchable in
-   the ChatGPT apps directory.
+### Build the ZIP
+
+`plugin.json` must sit at the root of the ZIP, not inside a folder:
+
+```bash
+cd chatgpt-plugin && zip -r ../airtreks-chatgpt-plugin.zip . -x '.*' && cd ..
+```
+
+### One-time setup (Sean)
+
+1. **Verify the org** in https://platform.openai.com/settings. Use *business*
+   verification to publish as AirTreks; individual verification publishes under a
+   personal name, and an unverified publisher is rejected. The listing URLs must
+   "identify the same publisher as the submission". The privacy and terms pages
+   say "AirTreks", so if the verified legal name is different, add it to those pages.
+2. Whoever submits needs to be an org owner or have **Apps Management Write**.
+3. **Approve the terms wording** at https://mcp.airtreks.com/terms (source:
+   `src/terms.ts`). It covers the hosted service only, and has no governing-law
+   clause; add one if you want it.
+4. **Record the video** (shot list below), upload it where reviewers can open it
+   without signing in (YouTube unlisted, Loom, or Drive "anyone with the link"),
+   and keep the URL.
+
+### Submit
+
+1. **Plugins → Upload new or existing plugin**, choose the verified developer
+   identity, and upload the ZIP.
+2. **Metadata & Skills:** wait for the checks. Fix any issue in `plugin.json`,
+   rebuild and upload again.
+3. **MCPs → Connect:** server URL `https://mcp.airtreks.com/mcp`, no authentication.
+4. **Domain verification:** the portal shows a token.
+   - In Railway, set `OPENAI_APPS_CHALLENGE=<token>` on the airtreks-mcp-server
+     production service, and deploy the staged change.
+   - Check that `curl https://mcp.airtreks.com/.well-known/openai-apps-challenge`
+     prints exactly the token, then press verify.
+5. **Tool scan:** expect 11 tools. If it asks for annotation justifications, paste
+   them from the table below.
+6. **Review information → Review details:**
+   - The test cases and release notes come from the ZIP.
+   - Paste the video URL; it is not in the ZIP.
+   - Leave reviewer credentials empty; there is no sign-in.
+7. **Submit for review** and confirm the policy attestations. Only one review can
+   be active at a time. Rejections arrive by email; reply to that email to appeal.
+8. After approval, select **Publish plugin**, then update the status table above.
+
+**After publication:**
+- OpenAI rescans the server daily. A changed tool is held until it passes the
+  automated checks, so keep input schemas backwards compatible.
+- Changing the MCP URL needs OpenAI support.
+- Changing listing text, review cases or icons needs a new ZIP.
+
+### Video shot list (about 3-5 minutes)
+
+1. In ChatGPT, open **Plugins → + → Add custom MCP server**, enter
+   `https://mcp.airtreks.com/mcp`, and choose no authentication.
+2. Run the five positive prompts from `plugin.json` in order, word for word.
+   - Keep each tool call visible.
+   - For case 5, show the status text while the trip prices (about a minute).
+3. Run the three negative prompts and show that no AirTreks tool is called.
+4. Show one prompt on mobile as well as desktop; the guidelines require both to work.
+5. The directory also serves Codex. Reviewers check "the supported ChatGPT and
+   Codex surfaces where the plugin will be available", so run one case in Codex
+   if it will be listed there.
+
+### Annotation justifications
+
+The guidelines say justifications are no longer required, but the
+submission-errors page still lists `justification_required`. Keep these ready:
+
+| Tools | readOnly | destructive | openWorld | Justification |
+|---|---|---|---|---|
+| `plan_route`, `route_validate`, `route_suggest`, `hub_check`, `fare_product_match`, `custom_route_build` | true | false | false | Computes routing advice from data bundled with the server. Stores nothing, changes nothing, contacts no one. |
+| `route_estimate` | true | false | false | Reads AirTreks' own record of past fares and returns a price range. Changes nothing. |
+| `fare_quote` | true | false | false | Looks up live fares in AirTreks' own pricing system and returns them. Holds no seats, creates no booking, sends nothing. A bounded private system, not open-ended destinations. |
+| `itinerary_quote` | false | false | false | Starts a background price calculation whose only output goes back to the same caller through `itinerary_quote_status`. Not read-only because it starts a job, which the guidelines count as queuing work; the hint makes ChatGPT ask before each whole-trip quote. Not destructive: it holds no seats, creates no booking, and is discarded after 10 minutes. Not open world: it searches only AirTreks' own pricing system. |
+| `itinerary_quote_status` | true | false | false | Reads the result of a calculation started by `itinerary_quote`. Changes nothing. |
+| `trip_idea_create` | false | true | true | Creates a trip request in AirTreks' booking system so a human consultant can follow up. Destructive, because the request emails the traveller and notifies a consultant, and those sends cannot be recalled; the hint makes ChatGPT ask before the traveller's details are sent. A repeat call with the same email and route within 24 hours returns the existing request instead of a second one. Open world, because the traveller's details reach people outside the conversation. |
+
+**Confirmation prompts (AIR-1108):** ChatGPT asks the user before two tools:
+`itinerary_quote` (it starts a background job, so it is not read-only) and
+`trip_idea_create` (`destructiveHint: true`, because the emails it triggers
+cannot be recalled). Both are deliberate, to match the guidelines' wording.
 
 ---
 

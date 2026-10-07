@@ -53,6 +53,13 @@ export interface ToolDef {
    * of seconds, and a silent wait reads as a broken app.
    */
   status: { invoking: string; invoked: string };
+  /**
+   * Starts background work that the caller collects with a second tool. OpenAI
+   * counts "starting stateful jobs or workflows, queuing work" as not read-only,
+   * so such a tool gets readOnlyHint false although it changes nothing anyone
+   * can see. Kept apart from `readOnly`, which also tags the REST surface.
+   */
+  startsJob?: boolean;
 }
 
 const RAW_TOOLS: ToolDef[] = [
@@ -107,6 +114,8 @@ const RAW_TOOLS: ToolDef[] = [
     readOnly: true,
     requiresKey: false,
     status: { invoking: "Starting to price the whole trip…", invoked: "Pricing started, about a minute" },
+    // The quote runs as a background job that itinerary_quote_status collects.
+    startsJob: true,
     // Charged per call from the leg count: this fans out across many provider
     // searches, so a flat cost would let the priciest tool draw the least budget.
     upstreamCost: estimateSearches,
@@ -187,11 +196,22 @@ export function normalizeCityArgs(args: any): any {
 // definition does not count as open-world. trip_idea_create is the exception: it
 // submits a trip request. ChatGPT requires all three hints to be present, so
 // destructiveHint is spelled out even where readOnlyHint already implies it.
+//
+// trip_idea_create is destructive in OpenAI's sense: the request emails the
+// traveller and notifies a consultant, and those sends cannot be recalled, which
+// their guidelines count as irreversible even though the lead itself is additive.
+// The hint makes ChatGPT ask the user before sending their details to AirTreks.
+//
+// A tool that starts a background job (itinerary_quote) is not read-only by
+// OpenAI's rule, but it is additive, private and repeatable at a cost, so only
+// readOnlyHint moves. ChatGPT then asks before each whole-trip quote.
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
-const LEAD_TOOL = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true };
+const STARTS_JOB = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+const LEAD_TOOL = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true };
 
 export function toolAnnotations(tool: ToolDef) {
-  return tool.readOnly ? { ...READ_ONLY } : { ...LEAD_TOOL };
+  if (!tool.readOnly) return { ...LEAD_TOOL };
+  return tool.startsJob ? { ...STARTS_JOB } : { ...READ_ONLY };
 }
 
 /**

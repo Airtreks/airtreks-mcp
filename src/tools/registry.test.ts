@@ -20,14 +20,30 @@ test("every tool carries the three hints ChatGPT requires", () => {
     for (const key of ["readOnlyHint", "destructiveHint", "openWorldHint"] as const) {
       assert.equal(typeof hints[key], "boolean", `${tool.name} ${key}`);
     }
-    assert.equal(hints.destructiveHint, false, `${tool.name} deletes nothing`);
+    // Only the consultant handoff sends anything that cannot be recalled.
+    assert.equal(hints.destructiveHint, tool.name === "trip_idea_create", tool.name);
   }
 });
 
-test("only the consultant handoff is flagged as acting outside the conversation", () => {
+test("only the consultant handoff and the job-starting quote are not read-only", () => {
   // An annotation that disagrees with what a tool does is a listed rejection reason.
   const writers = TOOLS.filter((t) => !toolAnnotations(t).readOnlyHint).map((t) => t.name);
-  assert.deepEqual(writers, ["trip_idea_create"]);
+  assert.deepEqual(writers, ["trip_idea_create", "itinerary_quote"]);
+  // Only the handoff reaches anyone outside the conversation.
+  const open = TOOLS.filter((t) => toolAnnotations(t).openWorldHint).map((t) => t.name);
+  assert.deepEqual(open, ["trip_idea_create"]);
+});
+
+test("the quote that starts a job stays a pricing tool everywhere else", () => {
+  const quote = TOOLS.find((t) => t.name === "itinerary_quote")!;
+  // `readOnly` still tags the REST surface: this is pricing, not booking.
+  assert.equal(quote.readOnly, true);
+  assert.deepEqual(toolAnnotations(quote), {
+    readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false,
+  });
+  // Collecting the result is a plain read.
+  const status = TOOLS.find((t) => t.name === "itinerary_quote_status")!;
+  assert.equal(toolAnnotations(status).readOnlyHint, true);
 });
 
 test("every tool is declared callable without an account", () => {
