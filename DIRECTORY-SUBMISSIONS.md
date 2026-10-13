@@ -73,8 +73,9 @@ below was read from https://developers.openai.com/plugins/deploy/submission on
   security scheme and all three annotation hints (1.2.6). The privacy policy is at
   https://mcp.airtreks.com/privacy, and the anonymous `openai` egress rate-limit
   bucket exists (AIR-499).
-- Terms of use at https://mcp.airtreks.com/terms (1.2.7). **This is a draft for
-  Sean to approve.** airtreks.com has no terms page, and the directory requires one.
+- Terms of use at https://mcp.airtreks.com/terms (1.2.7). Sean approved them on
+  2026-10-12 (#51): Washington governing law, published by AirTreks International LLC.
+  airtreks.com has no terms page, and the directory requires one.
 - Domain verification: `/.well-known/openai-apps-challenge` serves the
   `OPENAI_APPS_CHALLENGE` variable (1.2.7).
 - The package itself, in [`chatgpt-plugin/`](chatgpt-plugin/):
@@ -106,16 +107,13 @@ cd chatgpt-plugin && zip -r ../airtreks-chatgpt-plugin.zip . -x '.*' && cd ..
 
 ### One-time setup (Sean)
 
-1. **Verify the org** in https://platform.openai.com/settings. Use *business*
-   verification to publish as AirTreks; individual verification publishes under a
+1. **Verify the org** in https://platform.openai.com/settings as the business
+   **AirTreks International LLC**. Individual verification publishes under a
    personal name, and an unverified publisher is rejected. The listing URLs must
-   "identify the same publisher as the submission". The privacy and terms pages
-   say "AirTreks", so if the verified legal name is different, add it to those pages.
+   "identify the same publisher as the submission", and the terms page, the privacy
+   page and `developerName` in `plugin.json` all name AirTreks International LLC.
 2. Whoever submits needs to be an org owner or have **Apps Management Write**.
-3. **Approve the terms wording** at https://mcp.airtreks.com/terms (source:
-   `src/terms.ts`). It covers the hosted service only, and has no governing-law
-   clause; add one if you want it.
-4. **Record the video** (shot list below), upload it where reviewers can open it
+3. **Record the video** (shot list below), upload it where reviewers can open it
    without signing in (YouTube unlisted, Loom, or Drive "anyone with the link"),
    and keep the URL.
 
