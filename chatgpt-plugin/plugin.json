@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Plan and price multi-stop and round-the-world flight itineraries with AirTreks: route planning, price ranges from past AirTreks bookings, live fares, whole-trip pricing across several tickets, and a handoff to a human travel consultant.",
   "author": {
-    "name": "AirTreks",
+    "name": "AirTreks International LLC",
     "url": "https://airtreks.com"
   },
   "homepage": "https://mcp.airtreks.com",
@@ -17,7 +17,7 @@
         "displayName": "AirTreks",
         "shortDescription": "Plan & price multi-stop trips",
         "longDescription": "AirTreks plans and prices flight trips with several stops: round-the-world tickets, multi-city itineraries, open jaws and stopovers. It is for travellers working out where a trip can go, how it should be ticketed, and roughly what it will cost.\n\nWhat it can do:\n- Estimate the per-person price of a route from what AirTreks customers paid on the same routes, before you have dates.\n- Plan a multi-stop route: compare a Star Alliance round-the-world fare, a oneworld round-the-world fare and a custom build mixing airlines, then recommend one and say why.\n- Check a routing against airline fare rules, suggest proven routings by region, and check connections between two airports.\n- Show live fares for one itinerary on set dates.\n- Price a whole multi-stop trip on set dates and return several ways to ticket it, such as lowest price, shortest travelling time and fewest stops, with the flights in each ticket. This takes about a minute.\n- Send your trip to an AirTreks travel consultant, who follows up by email to quote and book it. This shares your name, email and trip details with AirTreks, and only happens when you ask for it.\n\nLimitations:\n- Price ranges come from past bookings and are not quotes. Live fares can change before booking.\n- It does not book flights, hold seats or take payment. Booking is done with an AirTreks consultant.\n- It covers flights only: no hotels, car hire, visas or insurance.\n- It is built for trips with several stops.",
-        "developerName": "AirTreks",
+        "developerName": "AirTreks International LLC",
         "category": "Travel",
         "capabilities": [
           "Estimate a trip's price from past bookings",
