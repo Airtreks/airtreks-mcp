@@ -23,7 +23,7 @@ export const PRIVACY_HTML = `<!doctype html>
 <h1>AirTreks MCP Server Privacy Policy</h1>
 <p><em>Effective July 13, 2026</em></p>
 
-<p>The AirTreks MCP Server (<code>mcp.airtreks.com</code>) is operated by AirTreks
+<p>The AirTreks MCP Server (<code>mcp.airtreks.com</code>) is operated by AirTreks International LLC
 (<a href="https://airtreks.com">airtreks.com</a>). It provides flight-routing tools
 to AI agents and assistants. This policy describes what data the server collects
 and how it is used.</p>
