@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.2.8 — 2026-11-03
+
+### trip_idea_create
+- **No silent defaults:** `passengers` and `cabin` are required. The traveler's planning answers, passengers and cabin go into the consultant notes, and an automation preference is acknowledged in the reply.
+- **A complete lead:** tool text tells agents to ask the traveler for everything (name, email, cities, a date for every leg, passengers, cabin, planning answers) and never to invent dates or answers.
+- **No airline picks in the lead:** carrier and alliance recommendations are no longer sent to the consultant.
+- Field length limits, a strict single-address email, and newlines flattened in free text.
+
+### Routing tools
+- `plan_route` and `custom_route_build` no longer choose airlines or alliances. They return route facts (direction, regions, backtracking, surface-sector options, complexity). Use `route_estimate` for price.
+
+### Security
+- Dependency advisories cleared (`npm audit`: 0 vulnerabilities).
+- Per-caller cap on paid upstream searches; a malformed budget setting no longer disables the daily ceiling.
+- Atomic JSON writes; a corrupt data file is moved aside instead of overwritten, and a corrupt spend ledger fails closed.
+- `/register` is closed unless a secret is configured, rate limited, and size capped; secrets are compared in constant time.
+- REST request bodies are capped at 64KB.
+
+### Build
+- The Docker build no longer runs the `prepare` script before the source is copied.
+
 ## 1.1.1 — 2026-08-19
 
 - Build now cleans `dist/` first: the 1.1.0 tarball shipped stale, unreferenced compiled files from pre-1.1.0 builds (tsc never deletes outputs of removed modules). 1.1.0 is unpublished; this is the same code with a clean artifact.
