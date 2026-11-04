@@ -4,7 +4,7 @@
  * (stdio/npx installs, where /data isn't creatable).
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
@@ -29,18 +29,45 @@ function ensureDir() {
   }
 }
 
-export function readJson<T>(filename: string, fallback: T): T {
+export type ReadState<T> = { status: "missing" } | { status: "ok"; data: T } | { status: "corrupt" };
+
+/**
+ * Read a JSON file, telling a missing file apart from a corrupt one. A corrupt
+ * file is moved aside (never deleted) so a caller that falls back to defaults
+ * and saves cannot destroy the only copy of its data (AIR-1311).
+ */
+export function readJsonState<T>(filename: string): ReadState<T> {
   ensureDir();
   const path = join(DATA_DIR, filename);
+  let raw: string;
   try {
-    return JSON.parse(readFileSync(path, "utf-8"));
+    raw = readFileSync(path, "utf-8");
   } catch {
-    return fallback;
+    return { status: "missing" };
+  }
+  try {
+    return { status: "ok", data: JSON.parse(raw) };
+  } catch {
+    try {
+      renameSync(path, `${path}.corrupt-${Date.now()}`);
+    } catch {
+      // best effort: the caller still treats this as corrupt
+    }
+    console.error(`[store] ${filename} was corrupt; moved aside`);
+    return { status: "corrupt" };
   }
 }
 
+export function readJson<T>(filename: string, fallback: T): T {
+  const r = readJsonState<T>(filename);
+  return r.status === "ok" ? r.data : fallback;
+}
+
+/** Write via a temp file and rename, so a crash mid-write never leaves a torn file. */
 export function writeJson(filename: string, data: unknown) {
   ensureDir();
   const path = join(DATA_DIR, filename);
-  writeFileSync(path, JSON.stringify(data, null, 2));
+  const tmp = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(data, null, 2));
+  renameSync(tmp, path);
 }

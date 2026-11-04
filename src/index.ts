@@ -19,6 +19,7 @@ const PKG_VERSION: string = JSON.parse(
 ).version || "0.0.0";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
 import { lookupKey, registerKey, listKeys, revokeKey, revokeKeysByEmail, apiKeyFromRequest } from "./lib/api-keys.js";
+import { safeEqual } from "./lib/secure.js";
 import { runAsCaller } from "./lib/caller.js";
 import { TOOLS, normalizeCityArgs, toolAnnotations, toolMeta } from "./tools/registry.js";
 import { handleRest } from "./rest.js";
@@ -138,17 +139,39 @@ async function startHttp() {
     // Register endpoint — get an API key
     if (url.pathname === "/register" && req.method === "POST") {
       const regSecret = process.env.REGISTER_SECRET || "";
+      const regIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+      // Registration is closed unless a secret is configured: an open /register
+      // hands out keys, and returns an existing key to anyone who knows the email.
+      if (!regSecret) {
+        res.writeHead(403, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Registration is closed. Contact partnerships@airtreks.com for access." }));
+        return;
+      }
+      const regRl = checkRateLimit(`register:${regIp}`, 10);
+      if (!regRl.allowed) {
+        res.writeHead(429, { "Content-Type": "application/json", ...getRateLimitHeaders(regRl) });
+        res.end(JSON.stringify({ error: "Too many registration attempts. Try again tomorrow." }));
+        return;
+      }
       let body = "";
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) {
+        body += chunk;
+        if (body.length > 8 * 1024) {
+          res.writeHead(413, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Request body too large." }));
+          req.destroy();
+          return;
+        }
+      }
       try {
         const { email, name, secret } = JSON.parse(body);
-        if (!email) {
+        if (!email || typeof email !== "string" || email.length > 254 || (name !== undefined && typeof name !== "string")) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "email is required" }));
           return;
         }
         // If REGISTER_SECRET is set, require it (prevents spam)
-        if (regSecret && secret !== regSecret) {
+        if (typeof secret !== "string" || !safeEqual(secret, regSecret)) {
           res.writeHead(403, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Invalid registration secret. Contact partnerships@airtreks.com for access." }));
           return;
@@ -174,7 +197,7 @@ async function startHttp() {
     if (url.pathname === "/keys") {
       const secret = process.env.STATS_SECRET || "";
       const provided = url.searchParams.get("key") || req.headers["x-stats-key"] as string || "";
-      if (!secret || provided !== secret) {
+      if (!secret || !safeEqual(String(provided), secret)) {
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Unauthorized" }));
         return;
@@ -312,7 +335,7 @@ async function startHttp() {
     if (url.pathname === "/stats") {
       const secret = process.env.STATS_SECRET || "";
       const provided = url.searchParams.get("key") || req.headers["x-stats-key"] as string || "";
-      if (!secret || provided !== secret) {
+      if (!secret || !safeEqual(String(provided), secret)) {
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Unauthorized. Provide ?key= or X-Stats-Key header." }));
         return;

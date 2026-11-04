@@ -14,7 +14,7 @@
  * itinerary quote fans out into many.
  */
 
-import { readJson, writeJson } from "./store.js";
+import { readJsonState, writeJson } from "./store.js";
 import { currentCaller, callerSpendLimit } from "./caller.js";
 
 const FILE = "spend-ledger.json";
@@ -41,9 +41,13 @@ function today(): string {
 }
 
 function load(): Ledger {
-  const ledger = readJson<Ledger>(FILE, { day: today(), spent: 0 });
+  const r = readJsonState<Ledger>(FILE);
+  // A corrupt ledger must not read as "nothing spent": treat the day as used up
+  // (the bad file is moved aside) and the budget returns at midnight.
+  if (r.status === "corrupt") return { day: today(), spent: Math.max(DAILY_BUDGET, 0) };
+  const ledger = r.status === "ok" ? r.data : { day: today(), spent: 0 };
   // A ledger from a previous day is a fresh budget, not a carried-over one.
-  if (ledger.day !== today()) return { day: today(), spent: 0 };
+  if (ledger.day !== today() || !Number.isFinite(ledger.spent)) return { day: today(), spent: 0 };
   return ledger;
 }
 
