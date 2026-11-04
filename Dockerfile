@@ -1,7 +1,7 @@
 FROM node:22-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 COPY tsconfig.json ./
 COPY src/ src/
 RUN npx tsc
@@ -9,7 +9,7 @@ RUN npx tsc
 FROM node:22-slim
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 COPY --from=build /app/dist dist/
 COPY server.json ./
 COPY public/ public/
