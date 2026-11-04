@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Airtreks/airtreks-mcp",
   "title": "AirTreks MCP",
-  "description": "Multi-city flight routing intelligence \u2014 plan RTW trips, estimate prices, and hand complete trip requests to AirTreks.",
+  "description": "Plan multi-city and RTW trips, estimate prices, and send complete trip requests to AirTreks.",
   "websiteUrl": "https://airtreks.com",
   "icons": [
     {
