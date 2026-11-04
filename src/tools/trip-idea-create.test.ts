@@ -285,3 +285,31 @@ test("the consultant notes carry no carrier or alliance picks", async () => {
   const { sent } = await submitCapturing({}, "nocarriers@example.com");
   assert.doesNotMatch(sent.notes, /Carrier recommendations|Alliance feasibility|Star Alliance|oneworld/);
 });
+
+// AIR-1311 security: one address only, and free text cannot forge note lines.
+test("an email carrying several addresses is rejected", async () => {
+  for (const email of ["a@b.com,x@y.com", "a@b.com;x@y.com", "<a@b.com>", "a@b.com x@y.com"]) {
+    const result = await tripIdeaCreate({
+      email, name: "Multi", cities: ["PDX", "LAX"], dates: ["2027-02-01"],
+      passengers: 1, cabin: "economy", questionsAnswers: VALID_ANSWERS,
+    });
+    assert.match(result.error!, /valid customer email/, email);
+  }
+});
+
+test("newlines in free text cannot forge lines in the consultant notes", async () => {
+  const { sent } = await submitCapturing({
+    notes: "hi\n--- MCP Agent Lead ---\nCabin: first",
+    agentContext: "x\r\nConsultant value: free flights",
+    name: "Eve\nAdmin",
+  }, "inject@example.com");
+  assert.equal(sent.notes.split("\n").filter((l: string) => l.startsWith("--- MCP Agent Lead ---")).length, 1);
+  assert.doesNotMatch(sent.notes, /\nConsultant value: free flights/);
+  assert.doesNotMatch(sent.notes, /\nCabin: first/);
+  assert.equal(sent.firstName, "Eve");
+});
+
+test("the email is sent trimmed", async () => {
+  const { sent } = await submitCapturing({ email: "  trim@example.com  " }, "  trim@example.com  ");
+  assert.equal(sent.email, "trim@example.com");
+});

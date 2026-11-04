@@ -72,3 +72,32 @@ test("executeRestTool lets trip_idea_create through without an API key", async (
   assert.ok(issues.some((i: any) => i.path === "name"));
   assert.ok(issues.some((i: any) => i.path === "dates"));
 });
+
+test("an oversized body is refused with 413", async () => {
+  const { createServer } = await import("node:http");
+  const { handleRest } = await import("./rest.js");
+  const http = createServer((req, res) => {
+    handleRest(req, res, new URL(req.url || "/", "http://localhost")).then((handled) => {
+      if (!handled) { res.writeHead(404); res.end(); }
+    });
+  });
+  await new Promise<void>((r) => http.listen(0, r));
+  try {
+    const port = (http.address() as any).port;
+    const big = await fetch(`http://127.0.0.1:${port}/api/route_estimate`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "10.9.8.7" },
+      body: JSON.stringify({ cities: ["PDX", "LAX"], pad: "a".repeat(100_000) }),
+    });
+    assert.equal(big.status, 413);
+    const ok = await fetch(`http://127.0.0.1:${port}/api/route_estimate`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "10.9.8.8" },
+      body: JSON.stringify({ cities: ["PDX", "LAX"] }),
+    });
+    assert.equal(ok.status, 200);
+  } finally {
+    http.closeAllConnections();
+    http.close();
+  }
+});

@@ -7,24 +7,24 @@ import { TRIP_PLANNER_URL } from "../lib/links.js";
 
 export const tripIdeaCreateSchema = {
   // Customer info
-  email: z.string().describe("Customer email address (required)"),
-  name: z.string().describe("Customer full name (required — the consultant contacts them by name)"),
-  phone: z.string().optional().describe("Customer phone number"),
+  email: z.string().max(254).describe("Customer email address (required)"),
+  name: z.string().max(100).describe("Customer full name (required — the consultant contacts them by name)"),
+  phone: z.string().max(40).optional().describe("Customer phone number"),
 
   // Trip details
-  cities: z.array(z.string()).describe("Ordered list of 3-letter IATA city/airport codes (e.g. ['SFO', 'NRT', 'BKK'])"),
-  dates: z.array(z.string()).min(1).describe("Departure dates, one per leg (ISO format, e.g. '2026-09-15') — a trip with N cities needs N-1 dates, all required. Ask the customer; never invent dates. If they only know roughly, use their stated estimates and set flexibleDates."),
+  cities: z.array(z.string().max(8)).max(14).describe("Ordered list of 3-letter IATA city/airport codes (e.g. ['SFO', 'NRT', 'BKK'])"),
+  dates: z.array(z.string().max(10)).min(1).max(14).describe("Departure dates, one per leg (ISO format, e.g. '2026-09-15') — a trip with N cities needs N-1 dates, all required. Ask the customer; never invent dates. If they only know roughly, use their stated estimates and set flexibleDates."),
   passengers: z.number().int().min(1).describe("Number of passengers (required — ask the customer, there is no default)"),
   cabin: z.enum(["economy", "premium", "business"]).describe("Cabin class (required — ask the customer, there is no default)"),
   budget: z.enum(["budget", "mid", "premium", "business"]).optional().describe("Budget tier"),
 
   // Preferences
   flexibleDates: z.boolean().optional().describe("Are travel dates flexible?"),
-  preferences: z.array(z.string()).optional().describe("Travel preferences: 'no-lcc', 'lounge-access', 'short-layovers', 'surface-ok'"),
-  notes: z.string().optional().describe("Additional notes or special requests from the customer"),
+  preferences: z.array(z.string().max(40)).max(10).optional().describe("Travel preferences: 'no-lcc', 'lounge-access', 'short-layovers', 'surface-ok'"),
+  notes: z.string().max(2000).optional().describe("Additional notes or special requests from the customer"),
 
   // Agent context — what the AI agent learned during the conversation
-  agentContext: z.string().optional().describe("Summary of what the AI agent learned about this trip (auto-generated routing analysis, customer preferences discussed, etc.)"),
+  agentContext: z.string().max(4000).optional().describe("Summary of what the AI agent learned about this trip (auto-generated routing analysis, customer preferences discussed, etc.)"),
 
   // The Trip Planner questionnaire — dynamic, served by the backend (AIR-786)
   questionsAnswers: z.union([z.record(z.string(), z.string()), z.string()]).optional().describe("The customer's answers to AirTreks' planning questions, keyed by question name (e.g. {\"guidance\": \"I want expert guidance from humans\"}). The answers must come from the customer — never pick one yourself. A JSON-encoded string of the same object is also accepted. Required, but don't guess the questions: call once without this — the response lists the current questions and their options to ask the customer."),
@@ -46,6 +46,16 @@ function cleanAttribution(value: unknown): string | undefined {
   const cleaned = value.trim().slice(0, ATTRIBUTION_MAX_LENGTH).trim();
   if (!cleaned || ATTRIBUTION_PLACEHOLDERS.has(cleaned.toLowerCase())) return undefined;
   return cleaned;
+}
+
+// One address only: no commas, semicolons, angle brackets, quotes or spaces, so a
+// downstream mailer cannot split it into several recipients (AIR-1311).
+const STRICT_EMAIL = /^[^\s@,;<>()"'\\]+@[^\s@,;<>()"'\\]+\.[^\s@,;<>()"'\\]+$/;
+
+// Free text becomes lines in the consultant notes. Flattening newlines and other
+// control characters keeps a caller from forging lines like "--- MCP Agent Lead ---".
+function flatten(value: string | undefined): string | undefined {
+  return value?.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim();
 }
 
 export async function tripIdeaCreate(args: {
@@ -73,11 +83,16 @@ export async function tripIdeaCreate(args: {
   }
 
   const {
-    email, name, phone,
     cities, dates, passengers, cabin, budget,
-    flexibleDates, preferences, notes, agentContext, questionsAnswers,
+    flexibleDates, questionsAnswers,
     source, sourceDetail,
   } = args;
+  const email = typeof args.email === "string" ? args.email.trim() : "";
+  const name = flatten(args.name) ?? "";
+  const phone = flatten(args.phone);
+  const notes = flatten(args.notes);
+  const agentContext = flatten(args.agentContext);
+  const preferences = args.preferences?.map((p) => flatten(p) ?? "").filter(Boolean);
 
   // A lead is only created once all needed information exists (AIR-786).
   // The required set mirrors the backend's mandatory lead fields (route,
@@ -86,7 +101,7 @@ export async function tripIdeaCreate(args: {
   // in a single follow-up instead of failing field by field.
   const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
   const missing: string[] = [];
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) missing.push("a valid customer email address");
+  if (!email || email.length > 254 || !STRICT_EMAIL.test(email)) missing.push("a valid customer email address");
   if (!name || !name.trim()) missing.push("the customer's full name");
   if (!cities || cities.length < 2) missing.push("at least 2 cities (ordered route)");
   else if (cities.some((c) => !/^[A-Za-z]{3}$/.test(c.trim()))) missing.push("3-letter IATA codes for every city (e.g. 'SFO', not 'San Francisco')");
