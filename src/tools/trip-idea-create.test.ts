@@ -279,3 +279,9 @@ test("an automation preference is acknowledged in the reply when no options were
   assert.match((result as any).message, /asked for automation/);
   assert.equal((result as any).tripDetails.planningAnswers.guidance, automation.guidance);
 });
+
+// AIR-1311: the MCP gathers trip details for Apex; it does not choose airlines.
+test("the consultant notes carry no carrier or alliance picks", async () => {
+  const { sent } = await submitCapturing({}, "nocarriers@example.com");
+  assert.doesNotMatch(sent.notes, /Carrier recommendations|Alliance feasibility|Star Alliance|oneworld/);
+});
