@@ -15,7 +15,7 @@ test("without an injected backend and no API key, forwarding explains how to reg
   setTripBackend(null);
   try {
     delete process.env.AIRTREKS_API_KEY;
-    const result = await tripIdeaCreate({ email: "x@example.com", name: "X", cities: ["SFO", "NRT"], dates: ["2027-01-10"] });
+    const result = await tripIdeaCreate({ email: "x@example.com", name: "X", cities: ["SFO", "NRT"], dates: ["2027-01-10"], passengers: 1, cabin: "economy" });
     assert.match(result.error!, /AirTreks API key/);
     assert.match((result as any).register, /\/register/);
   } finally {
@@ -53,7 +53,7 @@ const VALID_ANSWERS = {
 beforeEach(() => seedQuestionsCache());
 
 test("reports every missing required field in one pass, including the questionnaire", async () => {
-  const result = await tripIdeaCreate({ email: "not-an-email", name: "  ", cities: ["LAX"], dates: [] });
+  const result = await tripIdeaCreate({ email: "not-an-email", name: "  ", cities: ["LAX"], dates: [], passengers: 1, cabin: "economy" });
   assert.ok(result.error);
   assert.match(result.error!, /valid customer email/);
   assert.match(result.error!, /full name/);
@@ -70,6 +70,8 @@ test("requires a date for every leg, not just the first", async () => {
     name: "Leg Traveler",
     cities: ["SFO", "NRT", "BKK", "SFO"],
     dates: ["2026-11-10"],
+    passengers: 1,
+    cabin: "economy",
     questionsAnswers: VALID_ANSWERS,
   });
   assert.match(result.error!, /3 dates for 4 cities/);
@@ -81,6 +83,8 @@ test("an answer that is not one of the question's options is rejected", async ()
     name: "Opt Traveler",
     cities: ["SFO", "NRT"],
     dates: ["2026-11-10"],
+    passengers: 1,
+    cabin: "economy",
     questionsAnswers: { confidence: "very!", guidance: "I want expert guidance from humans" },
   });
   assert.match(result.error!, /planning questions/);
@@ -95,6 +99,8 @@ test("with no cached questions and APEX unreachable, the questionnaire is skippe
     name: "No Questions",
     cities: ["SFO", "NRT"],
     dates: ["2026-11-10"],
+    passengers: 1,
+    cabin: "economy",
   });
   // passes validation; fails later only because APEX isn't configured in tests
   assert.ok(!result.error || !/planning questions/.test(result.error));
@@ -107,6 +113,8 @@ test("a recently submitted email+route returns the existing trip idea instead of
     name: "Dupe Traveler",
     cities: ["SFO", "SYD", "SFO"],
     dates: ["2026-11-10", "2026-11-24"],
+    passengers: 1,
+    cabin: "economy",
     questionsAnswers: VALID_ANSWERS,
   });
   assert.equal(result.success, true);
@@ -121,6 +129,8 @@ test("accepts questionsAnswers as a JSON string (stale-schema clients)", async (
     name: "Stale Schema",
     cities: ["OTP", "MAD", "OTP"],
     dates: ["2027-03-04", "2027-03-08"],
+    passengers: 1,
+    cabin: "economy",
     questionsAnswers: JSON.stringify(VALID_ANSWERS),
   });
   // validation passed (answers accepted) — the dedupe hit proves we got past it
@@ -134,6 +144,8 @@ test("an unparseable questionsAnswers string is treated as unanswered, not a cra
     name: "Garbled",
     cities: ["OTP", "MAD"],
     dates: ["2027-03-04"],
+    passengers: 1,
+    cabin: "economy",
     questionsAnswers: "guidance: humans please",
   });
   assert.match(result.error!, /planning questions/);
@@ -159,6 +171,8 @@ async function submitCapturing(extra: Record<string, unknown>, email: string) {
       name: "Source Traveler",
       cities: ["SFO", "NRT", "BKK", "SFO"],
       dates: ["2027-02-01", "2027-02-08", "2027-02-15"],
+      passengers: 1,
+      cabin: "economy",
       questionsAnswers: VALID_ANSWERS,
       ...extra,
     });
@@ -224,6 +238,8 @@ test("a duplicate submission returns no trip link and never asks the backend for
       name: "Repeat Traveler",
       cities: ["SFO", "LHR", "SFO"],
       dates: ["2027-04-01", "2027-04-15"],
+      passengers: 1,
+      cabin: "economy",
       questionsAnswers: VALID_ANSWERS,
     });
     assert.equal((result as any).duplicate, true);
@@ -234,4 +250,32 @@ test("a duplicate submission returns no trip link and never asks the backend for
   } finally {
     setTripBackend(saved);
   }
+});
+
+// AIR-1311: passengers and cabin are asked, never defaulted.
+test("missing passengers and cabin are reported, not silently defaulted to 1 and economy", async () => {
+  const result = await tripIdeaCreate({
+    email: "nodefaults@example.com",
+    name: "No Defaults",
+    cities: ["PDX", "LAX", "PDX"],
+    dates: ["2027-02-01", "2027-02-10"],
+    questionsAnswers: VALID_ANSWERS,
+  } as any);
+  assert.match(result.error!, /number of passengers/);
+  assert.match(result.error!, /cabin class/);
+});
+
+test("the traveler's planning answers, passengers and cabin reach the consultant notes", async () => {
+  const { sent } = await submitCapturing({ passengers: 2, cabin: "business" }, "notes@example.com");
+  assert.equal(sent.passengers, 2);
+  assert.equal(sent.cabin, "business");
+  assert.match(sent.notes, /Passengers: 2/);
+  assert.match(sent.notes, /Cabin: business/);
+}); 
+
+test("an automation preference is acknowledged in the reply when no options were prepared", async () => {
+  const automation = { ...VALID_ANSWERS, guidance: "I want automation and algorithms to choose (and then I edit)" };
+  const { result } = await submitCapturing({ questionsAnswers: automation }, "auto@example.com");
+  assert.match((result as any).message, /asked for automation/);
+  assert.equal((result as any).tripDetails.planningAnswers.guidance, automation.guidance);
 });

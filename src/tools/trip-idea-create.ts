@@ -13,9 +13,9 @@ export const tripIdeaCreateSchema = {
 
   // Trip details
   cities: z.array(z.string()).describe("Ordered list of 3-letter IATA city/airport codes (e.g. ['SFO', 'NRT', 'BKK'])"),
-  dates: z.array(z.string()).min(1).describe("Departure dates, one per leg (ISO format, e.g. '2026-09-15') — a trip with N cities needs N-1 dates, all required. If the customer is unsure, use their best estimates and set flexibleDates."),
-  passengers: z.number().optional().describe("Number of passengers (default 1)"),
-  cabin: z.enum(["economy", "premium", "business"]).optional().describe("Cabin class preference"),
+  dates: z.array(z.string()).min(1).describe("Departure dates, one per leg (ISO format, e.g. '2026-09-15') — a trip with N cities needs N-1 dates, all required. Ask the customer; never invent dates. If they only know roughly, use their stated estimates and set flexibleDates."),
+  passengers: z.number().int().min(1).describe("Number of passengers (required — ask the customer, there is no default)"),
+  cabin: z.enum(["economy", "premium", "business"]).describe("Cabin class (required — ask the customer, there is no default)"),
   budget: z.enum(["budget", "mid", "premium", "business"]).optional().describe("Budget tier"),
 
   // Preferences
@@ -27,7 +27,7 @@ export const tripIdeaCreateSchema = {
   agentContext: z.string().optional().describe("Summary of what the AI agent learned about this trip (auto-generated routing analysis, customer preferences discussed, etc.)"),
 
   // The Trip Planner questionnaire — dynamic, served by the backend (AIR-786)
-  questionsAnswers: z.union([z.record(z.string(), z.string()), z.string()]).optional().describe("The customer's answers to AirTreks' planning questions, keyed by question name (e.g. {\"guidance\": \"I want expert guidance from humans\"}). A JSON-encoded string of the same object is also accepted. Required, but don't guess the questions: call once without this — the response lists the current questions and their options to ask the customer."),
+  questionsAnswers: z.union([z.record(z.string(), z.string()), z.string()]).optional().describe("The customer's answers to AirTreks' planning questions, keyed by question name (e.g. {\"guidance\": \"I want expert guidance from humans\"}). The answers must come from the customer — never pick one yourself. A JSON-encoded string of the same object is also accepted. Required, but don't guess the questions: call once without this — the response lists the current questions and their options to ask the customer."),
 
   // Attribution — which channel the request came through (AIR-1108)
   source: z.string().optional().describe("The AI platform or app this conversation is running in, lowercase (e.g. 'chatgpt', 'claude', 'perplexity'). Only tells AirTreks which channel the request came through — never put customer details here. Omit it if you don't know."),
@@ -54,8 +54,8 @@ export async function tripIdeaCreate(args: {
   phone?: string;
   cities: string[];
   dates: string[];
-  passengers?: number;
-  cabin?: string;
+  passengers: number;
+  cabin: string;
   budget?: string;
   flexibleDates?: boolean;
   preferences?: string[];
@@ -74,7 +74,7 @@ export async function tripIdeaCreate(args: {
 
   const {
     email, name, phone,
-    cities, dates, passengers = 1, cabin = "economy", budget,
+    cities, dates, passengers, cabin, budget,
     flexibleDates, preferences, notes, agentContext, questionsAnswers,
     source, sourceDetail,
   } = args;
@@ -90,6 +90,10 @@ export async function tripIdeaCreate(args: {
   if (!name || !name.trim()) missing.push("the customer's full name");
   if (!cities || cities.length < 2) missing.push("at least 2 cities (ordered route)");
   else if (cities.some((c) => !/^[A-Za-z]{3}$/.test(c.trim()))) missing.push("3-letter IATA codes for every city (e.g. 'SFO', not 'San Francisco')");
+  // No silent defaults (AIR-1311): a lead recorded as 1 passenger in economy
+  // that the traveler never confirmed is a guess dressed up as a request.
+  if (!Number.isInteger(passengers) || passengers < 1) missing.push("the number of passengers (ask the customer — there is no default)");
+  if (!["economy", "premium", "business"].includes(cabin)) missing.push("the cabin class: economy, premium, or business (ask the customer — there is no default)");
   const legs = cities && cities.length >= 2 ? cities.length - 1 : 0;
   if (legs && (!dates || dates.length < legs)) missing.push(`a departure date for every leg — ${legs} dates for ${cities.length} cities (ISO format, e.g. '2026-09-15'; use the customer's best estimates plus flexibleDates if unsure)`);
   else if (dates?.some((d) => !ISO_DATE.test(d))) missing.push("every date in ISO format (YYYY-MM-DD)");
@@ -231,9 +235,14 @@ export async function tripIdeaCreate(args: {
 
   // Customer preferences
   if (budget) noteLines.push(`\nBudget: ${budget}`);
-  if (cabin !== "economy") noteLines.push(`Cabin: ${cabin}`);
+  noteLines.push(`Passengers: ${passengers}`);
+  noteLines.push(`Cabin: ${cabin}`);
   if (flexibleDates) noteLines.push("Dates are flexible");
   if (preferences?.length) noteLines.push(`Preferences: ${preferences.join(", ")}`);
+  // The traveler's own planning answers, in plain words, so no one downstream
+  // has to dig them out of the structured payload (AIR-1311).
+  noteLines.push("\nTraveler's planning answers:");
+  for (const q of tpQuestions) noteLines.push(`  ${q.question} ${questionsAnswersPayload[q.question][0]}`);
   if (notes) noteLines.push(`\nCustomer notes: ${notes}`);
   if (agentContext) noteLines.push(`\nAgent context: ${agentContext}`);
 
@@ -266,13 +275,21 @@ export async function tripIdeaCreate(args: {
     // Solutions auto-created and emailed when the lead qualified (AIR-786).
     const solutionIds = Array.isArray(result.raw?.data?.solutionIds) ? result.raw.data.solutionIds : [];
 
+    // The traveler's "how do you want to plan" answer must show in the reply
+    // (AIR-1311). Automation was chosen but nothing was prepared: say so.
+    const guidance = tpQuestions.find((q) => q.name === "guidance");
+    const wantsAutomation = /automation/i.test(guidance ? questionsAnswersPayload[guidance.question][0] : "");
+    const prefNote = wantsAutomation && !solutionIds.length
+      ? " You asked for automation first: priced options weren't ready to send yet, so a consultant will pick this up with that preference noted."
+      : "";
+
     // No trip link in the response: AirTreks emails the customer theirs.
     return {
       success: true,
       tripIdeaId: result.id,
       message: solutionIds.length
         ? `Trip request #${result.id} received by AirTreks — ${solutionIds.length} priced itinerary option(s) were automatically prepared and emailed to the customer. A travel consultant will follow up.`
-        : `Trip request #${result.id} received by AirTreks. A travel consultant will review your ${cities.length - 1}-leg itinerary and reach out within 1 business day.`,
+        : `Trip request #${result.id} received by AirTreks. A travel consultant will review your ${cities.length - 1}-leg itinerary and reach out within 1 business day.${prefNote}`,
       route: cities.map((c) => c.toUpperCase()).join(" -> "),
       autoSolutionsSent: solutionIds.length || undefined,
       consultant: "A consultant will be assigned based on route expertise and availability.",
@@ -286,6 +303,7 @@ export async function tripIdeaCreate(args: {
         passengers,
         cabin,
         flexibleDates: !!flexibleDates,
+        planningAnswers: Object.fromEntries(tpQuestions.map((q) => [q.name, questionsAnswersPayload[q.question][0]])),
         recommended: analysis.recommended,
       },
     };
