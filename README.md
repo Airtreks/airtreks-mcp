@@ -128,12 +128,12 @@ All tools are free and need no API key — 100 requests/day per IP.
 
 | Tool | Description |
 |------|-------------|
-| `plan_route` | Primary entry point - give it cities, it evaluates Star Alliance RTW, oneworld RTW, and custom mixed-carrier builds, then recommends the best approach |
+| `plan_route` | Lay out a multi-city trip - direction, regions crossed, backtracking, surface-sector options, and how complex it is to ticket. No airline picks |
 | `route_validate` | Validate a multi-city routing - alliance rules, dead legs, poison carriers, bookability |
 | `route_suggest` | Get 3 suggested routings by region, direction, and alliance |
 | `hub_check` | Best connection between two airports - dead leg detection + hub fixes |
 | `fare_product_match` | Match the right fare product (RTW, Circle Pacific/Atlantic, Open Jaw, Custom) with typical price ranges |
-| `custom_route_build` | Break complex itineraries into individually-ticketable segments with carrier recommendations |
+| `custom_route_build` | Break a multi-city itinerary into legs with surface-sector options and how much each leg benefits from a consultant. No airline picks |
 
 #### Pricing
 
