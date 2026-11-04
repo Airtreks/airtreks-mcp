@@ -80,3 +80,27 @@ test("a zero budget disables the ceiling entirely", async () => {
     process.env.UPSTREAM_DAILY_BUDGET = previous;
   }
 });
+
+// AIR-1311: one caller cannot use up everyone's day.
+test("one anonymous caller is capped; others still spend", async () => {
+  const { runAsCaller } = await import("./caller.js");
+  process.env.CALLER_SPEND_ANON = "2";
+  _resetLedgerForTests(0);
+  runAsCaller("ip:1.1.1.1", () => {
+    assert.equal(chargeSpend(1).allowed, true);
+    assert.equal(chargeSpend(1).allowed, true);
+    assert.equal(chargeSpend(1).allowed, false, "third search from the same caller is refused");
+  });
+  assert.equal(peekSpend().spent, 2, "the refused search spent nothing");
+  runAsCaller("ip:2.2.2.2", () => assert.equal(chargeSpend(1).allowed, true));
+  delete process.env.CALLER_SPEND_ANON;
+});
+
+test("a single call costing more than the caller cap is refused outright", async () => {
+  const { runAsCaller } = await import("./caller.js");
+  process.env.CALLER_SPEND_ANON = "3";
+  _resetLedgerForTests(0);
+  runAsCaller("ip:3.3.3.3", () => assert.equal(chargeSpend(4).allowed, false));
+  assert.equal(peekSpend().spent, 0);
+  delete process.env.CALLER_SPEND_ANON;
+});

@@ -19,6 +19,7 @@ const PKG_VERSION: string = JSON.parse(
 ).version || "0.0.0";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
 import { lookupKey, registerKey, listKeys, revokeKey, revokeKeysByEmail, apiKeyFromRequest } from "./lib/api-keys.js";
+import { runAsCaller } from "./lib/caller.js";
 import { TOOLS, normalizeCityArgs, toolAnnotations, toolMeta } from "./tools/registry.js";
 import { handleRest } from "./rest.js";
 import { handleFavicon } from "./favicon.js";
@@ -216,6 +217,9 @@ async function startHttp() {
         return;
       }
 
+      // Who to charge paid searches to, for the per-caller spend cap (AIR-1311)
+      let callerKey = "";
+
       // Auth + rate limiting on POST requests
       if (req.method === "POST") {
         const apiKey = apiKeyFromRequest(req.headers as Record<string, unknown>, url);
@@ -232,6 +236,8 @@ async function startHttp() {
         const platform = keyRecord ? null : matchPlatform(ip);
         const bucketKey = keyRecord ? keyRecord.key : platform ? `platform:${platform.name}` : `ip:${ip}`;
         const dailyLimit = keyRecord ? keyRecord.dailyLimit : platform ? platform.dailyLimit : 100;
+        const hdrSession = req.headers["mcp-session-id"] as string | undefined;
+        callerKey = platform && hdrSession ? `sess:${hdrSession}` : bucketKey;
         // On a shared platform pool, check this conversation's own share FIRST —
         // peeked, not charged, so a request that is about to be refused does not
         // also spend from the pool everyone else is drawing on.
@@ -279,7 +285,7 @@ async function startHttp() {
       if (sessionId && sessions.has(sessionId)) {
         const session = sessions.get(sessionId)!;
         session.lastUsed = Date.now();
-        await session.transport.handleRequest(req, res);
+        await runAsCaller(callerKey, () => session.transport.handleRequest(req, res));
         return;
       }
 
@@ -291,7 +297,7 @@ async function startHttp() {
         const hasKey = !!(sessionKey && lookupKey(sessionKey));
         const { transport, server: mcpServer } = createSession(hasKey);
         await mcpServer.connect(transport);
-        await transport.handleRequest(req, res);
+        await runAsCaller(callerKey, () => transport.handleRequest(req, res));
         return;
       }
 

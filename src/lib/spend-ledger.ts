@@ -15,11 +15,19 @@
  */
 
 import { readJson, writeJson } from "./store.js";
+import { currentCaller, callerSpendLimit } from "./caller.js";
 
 const FILE = "spend-ledger.json";
 
 /** 0 disables the ceiling. */
-const DAILY_BUDGET = parseInt(process.env.UPSTREAM_DAILY_BUDGET || "2000", 10);
+const parsedBudget = parseInt(process.env.UPSTREAM_DAILY_BUDGET || "2000", 10);
+// A malformed value must not turn the ceiling off (NaN comparisons are false).
+const DAILY_BUDGET = Number.isFinite(parsedBudget) && parsedBudget >= 0 ? parsedBudget : 2000;
+
+/** Per-caller spend today, in memory: it resets on deploy, the global ledger does not. */
+let callerDay = "";
+const callerSpent = new Map<string, number>();
+const MAX_CALLERS = 10000;
 
 interface Ledger {
   /** UTC date, YYYY-MM-DD. */
@@ -75,7 +83,21 @@ export function chargeSpend(units: number): SpendVerdict {
     return { allowed: false, spent: ledger.spent, budget: DAILY_BUDGET, remaining: 0 };
   }
 
-  const next = { day: ledger.day, spent: ledger.spent + Math.max(1, Math.trunc(units)) };
+  const cost = Math.max(1, Math.trunc(units));
+
+  // One caller cannot use up everyone's day (AIR-1311). Checked before the
+  // global charge so a refused caller spends nothing.
+  const caller = currentCaller();
+  if (caller) {
+    if (callerDay !== ledger.day) { callerDay = ledger.day; callerSpent.clear(); }
+    const used = callerSpent.get(caller) ?? 0;
+    const limit = callerSpendLimit(caller);
+    if (limit > 0 && used + cost > limit) {
+      return { allowed: false, spent: ledger.spent, budget: DAILY_BUDGET, remaining: Math.max(0, DAILY_BUDGET - ledger.spent) };
+    }
+  }
+
+  const next = { day: ledger.day, spent: ledger.spent + cost };
   try {
     writeJson(FILE, next);
   } catch {
@@ -84,6 +106,8 @@ export function chargeSpend(units: number): SpendVerdict {
     // the right call — everywhere else degrades to a non-priced answer.
     return { allowed: false, spent: ledger.spent, budget: DAILY_BUDGET, remaining: 0 };
   }
+
+  if (caller && callerSpent.size < MAX_CALLERS) callerSpent.set(caller, (callerSpent.get(caller) ?? 0) + cost);
 
   return {
     allowed: true,
@@ -95,5 +119,6 @@ export function chargeSpend(units: number): SpendVerdict {
 
 /** Test seam. */
 export function _resetLedgerForTests(spent = 0): void {
+  callerSpent.clear();
   writeJson(FILE, { day: today(), spent });
 }

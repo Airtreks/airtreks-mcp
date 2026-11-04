@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { IncomingMessage, ServerResponse } from "node:http";
+import { runAsCaller } from "./lib/caller.js";
 import { TOOLS, normalizeCityArgs, costsUpstream } from "./tools/registry.js";
 import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
 import { matchPlatform } from "./lib/cidr.js";
@@ -84,6 +85,8 @@ export async function executeRestTool(name: string, args: unknown, hasApiKey: bo
     return { status: 500, body: { error: err.message } };
   }
 }
+
+const MAX_BODY_BYTES = 64 * 1024;
 
 let openApiDoc: object | null = null;
 
@@ -212,8 +215,17 @@ export async function handleRest(req: IncomingMessage, res: ServerResponse, url:
     return true;
   }
 
+  // No tool argument set is anywhere near this large (AIR-1311).
   let body = "";
-  for await (const chunk of req) body += chunk;
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > MAX_BODY_BYTES) {
+      res.writeHead(413, { "Content-Type": "application/json", ...corsFor(name), ...getRateLimitHeaders(rl) });
+      res.end(JSON.stringify({ error: "Request body too large." }));
+      req.destroy();
+      return true;
+    }
+  }
   let args: unknown;
   try {
     args = body ? JSON.parse(body) : {};
@@ -223,7 +235,7 @@ export async function handleRest(req: IncomingMessage, res: ServerResponse, url:
     return true;
   }
 
-  const result = await executeRestTool(name, args, !!keyRecord);
+  const result = await runAsCaller(bucketKey, () => executeRestTool(name, args, !!keyRecord));
   res.writeHead(result.status, { "Content-Type": "application/json", ...corsFor(name), ...getRateLimitHeaders(rl) });
   res.end(JSON.stringify(result.body, null, 2));
   return true;
