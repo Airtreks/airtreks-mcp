@@ -1,13 +1,11 @@
 import { z } from "zod";
-import { routeValidate } from "./route-validate.js";
 import { customRouteBuild } from "./custom-route-build.js";
 import { getAirportRegion } from "../data/region-bridges.js";
-import { bookabilityByLegCount } from "../data/hubs.js";
 import { TRIP_PLANNER_URL } from "../lib/links.js";
 
 export const planRouteSchema = {
   cities: z.array(z.string()).describe("Ordered list of IATA city/airport codes (e.g. ['LAX', 'NRT', 'BKK', 'LIS', 'LAX'])"),
-  budget: z.enum(["budget", "mid", "premium", "business"]).optional().describe("Budget tier — affects carrier selection and fare strategy"),
+  budget: z.enum(["budget", "mid", "premium", "business"]).optional().describe("Budget tier the traveler asked for"),
   preferences: z.array(z.string()).optional().describe("Travel preferences: 'no-lcc', 'lounge-access', 'short-layovers', 'surface-ok'"),
   pax: z.number().optional().describe("Number of passengers"),
 };
@@ -99,52 +97,6 @@ function detectRegions(cities: string[]): string[] {
   return [...regions];
 }
 
-interface AllianceOption {
-  alliance: string;
-  viable: boolean;
-  bookability: string;
-  errors: string[];
-  warnings: string[];
-  summary: string;
-}
-
-function evaluateAlliance(cities: string[], alliance: "star" | "oneworld"): AllianceOption {
-  const result = routeValidate({ cities, alliance });
-  const allianceName = alliance === "star" ? "Star Alliance" : "oneworld";
-  const legs = cities.length - 1;
-
-  const legBand = bookabilityByLegCount.find((b) => {
-    if (b.legs === "3-4") return legs >= 3 && legs <= 4;
-    if (b.legs === "5-6") return legs >= 5 && legs <= 6;
-    if (b.legs === "7+") return legs >= 7;
-    return false;
-  });
-
-  const viable = result.isValid && (legBand?.successRate ?? 0) > 10;
-
-  let summary: string;
-  if (!result.isRoundTrip) {
-    summary = `Not eligible — ${allianceName} RTW requires same start/end city.`;
-  } else if (legs >= 7) {
-    summary = `Technically possible on ${allianceName} but only ${legBand?.successRate ?? "<6"}% bookability at ${legs} legs. Custom build strongly recommended.`;
-  } else if (result.errors.length > 0) {
-    summary = `Has issues on ${allianceName}: ${result.errors[0]}`;
-  } else if (result.warnings.length > 0) {
-    summary = `Possible on ${allianceName} with caveats. ${legs} legs, ${legBand?.successRate ?? "unknown"}% bookability.`;
-  } else {
-    summary = `Good fit for ${allianceName} RTW. ${legs} legs, ${legBand?.successRate ?? "unknown"}% bookability.`;
-  }
-
-  return {
-    alliance: allianceName,
-    viable,
-    bookability: legBand ? `${legBand.successRate}%` : "unknown",
-    errors: result.errors,
-    warnings: result.warnings,
-    summary,
-  };
-}
-
 export function planRoute(args: {
   cities: string[];
   budget?: string;
@@ -162,70 +114,7 @@ export function planRoute(args: {
   const { direction, backtracking } = detectDirection(cities);
   const regions = detectRegions(cities);
 
-  // --- Evaluate all three options ---
-
-  // 1. Star Alliance
-  const starResult = evaluateAlliance(cities, "star");
-
-  // 2. oneworld
-  const owResult = evaluateAlliance(cities, "oneworld");
-
-  // 3. Custom build (always run — this is 90% of the business)
   const customResult = customRouteBuild({ cities, budget, preferences, pax });
-
-  // --- Determine recommendation ---
-
-  type Approach = {
-    type: "star-alliance" | "oneworld" | "custom";
-    confidence: "high" | "medium" | "low";
-    reason: string;
-  };
-
-  const approaches: Approach[] = [];
-
-  // Custom is always an option
-  const customComplexity = (customResult as any).complexity || "moderate";
-  approaches.push({
-    type: "custom",
-    confidence: "high",
-    reason: backtracking
-      ? "Route backtracks between regions — alliance fares require continuous direction. Custom build is the only option."
-      : legs >= 7
-      ? `${legs} legs — alliance fares have <6% bookability. Custom build with mixed carriers is the way to go.`
-      : `Custom build gives maximum flexibility — mixed carriers, LCCs for short hops, surface sectors. This is how AirTreks builds most itineraries.`,
-  });
-
-  // Alliance options (only if viable)
-  if (starResult.viable && !backtracking && isRoundTrip && legs <= 6) {
-    approaches.push({
-      type: "star-alliance",
-      confidence: legs <= 4 ? "high" : "medium",
-      reason: starResult.summary,
-    });
-  }
-  if (owResult.viable && !backtracking && isRoundTrip && legs <= 6) {
-    approaches.push({
-      type: "oneworld",
-      confidence: legs <= 4 ? "high" : "medium",
-      reason: owResult.summary,
-    });
-  }
-
-  // Sort: pick the best recommendation
-  // Logic: if alliance is viable with high confidence AND legs <= 4, recommend alliance first
-  // Otherwise custom first (it's 90% of the business and always works)
-  approaches.sort((a, b) => {
-    // Alliance with high confidence and simple route goes first
-    if (a.type !== "custom" && a.confidence === "high" && legs <= 4) return -1;
-    if (b.type !== "custom" && b.confidence === "high" && legs <= 4) return 1;
-    // Custom always beats medium-confidence alliance
-    if (a.type === "custom") return -1;
-    if (b.type === "custom") return 1;
-    return 0;
-  });
-
-  const recommended = approaches[0];
-  const alternatives = approaches.slice(1);
 
   // --- Build response ---
 
@@ -237,53 +126,9 @@ export function planRoute(args: {
     backtracking,
     regionsCrossed: regions,
 
-    // The answer
-    recommended: {
-      approach: recommended.type,
-      confidence: recommended.confidence,
-      reason: recommended.reason,
-    },
   };
 
-  // If alliance is recommended, show the alliance details
-  if (recommended.type === "star-alliance" || recommended.type === "oneworld") {
-    const allianceDetail = recommended.type === "star-alliance" ? starResult : owResult;
-    result.allianceDetails = {
-      alliance: allianceDetail.alliance,
-      bookability: allianceDetail.bookability,
-      warnings: allianceDetail.warnings,
-    };
-    // Still include the custom build as the alternative
-    result.customBuild = customResult;
-  } else {
-    // Custom is recommended — show the full build
-    result.customBuild = customResult;
-  }
-
-  // Always show what the other options look like
-  if (alternatives.length > 0) {
-    result.otherOptions = alternatives.map((a) => ({
-      approach: a.type,
-      confidence: a.confidence,
-      reason: a.reason,
-    }));
-  }
-
-  // Alliance feasibility summary (always show — even if not recommended)
-  if (isRoundTrip && legs >= 3) {
-    result.allianceFeasibility = {
-      starAlliance: {
-        viable: starResult.viable,
-        summary: starResult.summary,
-        issues: [...starResult.errors, ...starResult.warnings],
-      },
-      oneworld: {
-        viable: owResult.viable,
-        summary: owResult.summary,
-        issues: [...owResult.errors, ...owResult.warnings],
-      },
-    };
-  }
+  result.customBuild = customResult;
 
   result.bookWithAirTreks = TRIP_PLANNER_URL;
 

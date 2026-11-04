@@ -66,7 +66,7 @@ const RAW_TOOLS: ToolDef[] = [
   {
     name: "plan_route",
     title: "Plan a Multi-City Route",
-    description: "The primary entry point for any multi-city trip. Give it your cities — it automatically evaluates Star Alliance RTW, oneworld RTW, AND custom mixed-carrier builds, then recommends the best approach. Handles direction detection, backtracking analysis, alliance feasibility, surface sectors, and carrier selection. The customer doesn't need to know if their trip is alliance or custom — this tool figures it out.",
+    description: "Lay out a multi-city trip: direction of travel, regions crossed, backtracking, where a surface sector could replace a flight, and how complex the trip is to ticket. Give it your cities. It does not choose airlines and gives no prices - use route_estimate for a price range and trip_idea_create to hand the trip to AirTreks.",
     schema: planRouteSchema,
     fn: planRoute,
     readOnly: true,
@@ -76,7 +76,7 @@ const RAW_TOOLS: ToolDef[] = [
   {
     name: "trip_idea_create",
     title: "Submit a Trip Request (Consultant Handoff)",
-    description: "Submit the customer's trip to AirTreks — a human travel consultant takes over from there. Automatically runs plan_route to attach the full routing analysis and carrier recommendations to the trip request, so the consultant starts informed, not cold. Use this when the customer is ready to get a real quote. Requires the customer's name, email, at least 2 cities (3-letter IATA codes), a departure date for every leg, and answers to AirTreks' planning questions — call once without questionsAnswers to receive the current questions to ask.",
+    description: "Submit the customer's trip to AirTreks as a complete, structured trip request - a human travel consultant takes over from there. Ask the traveler for everything before calling, never guess or fill in defaults: name, email, the cities in order (3-letter IATA codes), a departure date for every leg, number of passengers, cabin (economy, premium or business), and their answers to AirTreks' planning questions. Also ask about budget, flexible dates, preferences and anything else the consultant should know. Call once without questionsAnswers to receive the current planning questions to put to the traveler.",
     schema: tripIdeaCreateSchema,
     fn: tripIdeaCreate,
     readOnly: false,
