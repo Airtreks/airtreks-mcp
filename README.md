@@ -58,9 +58,9 @@ Then ask your agent:
 
 > Plan a round-the-world trip: San Francisco, Tokyo, Bangkok, Singapore, Delhi, Istanbul, London, back to San Francisco.
 
-## One call, one answer: a 6-stop RTW
+## One call, one answer: a 7-leg RTW
 
-Your user wants six stops around the world. Google Flights gives up. Alliance RTW booking sites will let them build it, then fail at ticketing. One `plan_route` call tells your agent what actually works:
+Your user wants six stops around the world. Google Flights gives up. One `plan_route` call lays the trip out, and one `route_estimate` call says what it costs. Neither one picks airlines: AirTreks consultants do that when they build the ticket.
 
 ```json
 {
@@ -69,7 +69,7 @@ Your user wants six stops around the world. Google Flights gives up. Alliance RT
 }
 ```
 
-Real response, trimmed for length (the full version includes carrier alternatives and consultant notes for all 7 legs):
+Real `plan_route` response, trimmed for length (the full version has notes for all 7 legs):
 
 ```json
 {
@@ -79,46 +79,33 @@ Real response, trimmed for length (the full version includes carrier alternative
   "direction": "westbound",
   "backtracking": false,
   "regionsCrossed": ["americas", "asia", "europe"],
-  "recommended": {
-    "approach": "custom",
-    "confidence": "high",
-    "reason": "7 legs — alliance fares have <6% bookability. Custom build with mixed carriers is the way to go."
-  },
   "customBuild": {
-    "strategy": "Mixed-carrier build using alliance carriers, Gulf bridge connections. 1 surface sector opportunity.",
-    "segments": [
-      {
-        "leg": 1, "from": "SFO", "to": "NRT",
-        "carrier": { "code": "NH", "name": "ANA", "why": "Best transpacific availability. LAX/SFO/SEA-NRT direct." }
-      },
-      {
-        "leg": 5, "from": "DEL", "to": "IST",
-        "carrier": { "code": "TK", "name": "Turkish Airlines", "type": "gulf-bridge", "why": "Cheapest Asia-Europe usually. IST connects everywhere." }
-      }
-    ],
+    "strategy": "7-leg route. 1 surface sector opportunity.",
     "surfaceSectors": [
       {
         "insteadOf": "BKK -> SIN (leg 3)",
         "suggestion": "Bangkok to Singapore through Malaysia. Train, bus, or ultra-cheap LCC. Adds Malaysia and possibly Penang, KL, Melaka.",
         "savings": "Saves $100-250"
       }
-    ]
-  },
-  "allianceFeasibility": {
-    "starAlliance": { "viable": false, "summary": "Technically possible on Star Alliance but only 6% bookability at 7 legs. Custom build strongly recommended." },
-    "oneworld": { "viable": false, "summary": "Technically possible on oneworld but only 6% bookability at 7 legs. Custom build strongly recommended." }
+    ],
+    "complexity": "moderate"
   }
 }
 ```
 
-That single call just told your agent four things it can't get anywhere else:
+And `route_estimate` on the same cities:
 
-- **Alliance RTW fares fail on this trip.** 7 legs prices at 6% bookability - your user would build it, hit a wall at ticketing, and blame you.
-- **The build that works:** a per-leg carrier plan - ANA transpacific, Turkish Airlines as the Asia-Europe bridge, each with alternatives and trade-offs.
-- **Where to not fly at all:** Bangkok to Singapore is cheaper overland through Malaysia, saving $100-250 and adding a country.
-- **What it typically costs:** `fare_product_match` puts this trip at $2,500-$8,000 economy on an alliance RTW fare, typically $3,000-$12,000 as a custom build.
+```json
+{
+  "cabin": "economy",
+  "currency": "USD",
+  "estimate": { "low": 1616.43, "high": 2465.75 },
+  "confidence": "medium",
+  "basis": "1,616-2,466 USD per person, from AirTreks fare history. We have history for most of this route, but not all of it."
+}
+```
 
-Those are honest ranges, not quotes - exact pricing on a 7-leg mixed-carrier itinerary depends on fare-class availability the day you book. For a real number, `trip_idea_create` hands the full routing analysis to an AirTreks consultant who prices and books the actual ticket. Your user gets an expert who starts informed, not a form to fill out.
+That is a range from past AirTreks bookings, not a quote. For a real number, `trip_idea_create` hands the complete trip - route, a date for every leg, passengers, cabin and the traveler's answers to our planning questions - to an AirTreks consultant who prices and books it.
 
 ## Tools
 
