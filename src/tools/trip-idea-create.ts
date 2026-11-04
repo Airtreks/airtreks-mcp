@@ -186,10 +186,6 @@ export async function tripIdeaCreate(args: {
 
   // Route analysis summary
   const analysis = routeAnalysis as Record<string, any>;
-  if (analysis.recommended) {
-    noteLines.push(`\nRecommended approach: ${analysis.recommended.approach} (${analysis.recommended.confidence} confidence)`);
-    noteLines.push(`Reason: ${analysis.recommended.reason}`);
-  }
   if (analysis.direction) {
     noteLines.push(`Direction: ${analysis.direction}${analysis.backtracking ? " (backtracking detected)" : ""}`);
   }
@@ -203,18 +199,6 @@ export async function tripIdeaCreate(args: {
     if (customBuild.consultantValueSummary) {
       noteLines.push(`Consultant value: ${customBuild.consultantValueSummary}`);
     }
-    // Segment-by-segment carrier recommendations
-    const segments = customBuild.segments as any[] | undefined;
-    if (segments?.length) {
-      noteLines.push(`\nCarrier recommendations:`);
-      for (const seg of segments) {
-        const cv = seg.consultantValue === "high" ? " ** HIGH VALUE **" : "";
-        noteLines.push(`  Leg ${seg.leg}: ${seg.from}-${seg.to} -> ${seg.carrier.code} (${seg.carrier.name})${cv}`);
-        if (seg.surfaceNote) {
-          noteLines.push(`    Surface option: ${seg.surfaceNote}`);
-        }
-      }
-    }
     // Surface sectors
     const surfaces = customBuild.surfaceSectors as any[] | undefined;
     if (surfaces?.length) {
@@ -225,13 +209,8 @@ export async function tripIdeaCreate(args: {
     }
   }
 
-  // Alliance feasibility
-  const af = analysis.allianceFeasibility as Record<string, any> | undefined;
-  if (af) {
-    noteLines.push(`\nAlliance feasibility:`);
-    if (af.starAlliance) noteLines.push(`  Star Alliance: ${af.starAlliance.summary}`);
-    if (af.oneworld) noteLines.push(`  oneworld: ${af.oneworld.summary}`);
-  }
+  // No airline or alliance picks here: the MCP gathers the traveler's trip
+  // details for Apex and does not choose carriers (AIR-1311).
 
   // Customer preferences
   if (budget) noteLines.push(`\nBudget: ${budget}`);
@@ -304,7 +283,6 @@ export async function tripIdeaCreate(args: {
         cabin,
         flexibleDates: !!flexibleDates,
         planningAnswers: Object.fromEntries(tpQuestions.map((q) => [q.name, questionsAnswersPayload[q.question][0]])),
-        recommended: analysis.recommended,
       },
     };
   } catch (err: any) {
