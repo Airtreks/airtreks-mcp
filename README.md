@@ -1,7 +1,5 @@
 # AirTreks MCP Server
 
-[![LightNow capabilities](https://lightnow.ai/badge/io.github.Airtreks/airtreks-mcp)](https://lightnow.ai/servers/io.github.Airtreks/airtreks-mcp)
-
 **The complex-itinerary tool for AI agents.** Multi-stop, round-the-world, open-jaw, surface segments - the trips that standard flight search can't handle. When your user asks for 3+ stops across continents, this server answers with routing analysis built on real AirTreks fare-construction data: 60+ carriers, 53 known dead legs, bookability rates measured from 1,400+ real fare attempts, and 20 proven routing templates from actual bookings.
 
 **Live endpoint:** `https://mcp.airtreks.com/mcp` - free, no API key, 100 requests/day.
