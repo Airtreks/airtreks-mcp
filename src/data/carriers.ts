@@ -40,9 +40,8 @@ export const lccCarriers: CarrierInfo[] = [
   { code: "VY", name: "Vueling", type: "lcc", hub: "BCN", regions: ["europe"], strengths: "Spain/Mediterranean. IAG group (BA parent)." },
   { code: "DY", name: "Norwegian", type: "lcc", hub: "OSL", regions: ["europe"], strengths: "Scandinavia specialist. Some long-haul." },
   // Intra-Americas
-  { code: "WN", name: "Southwest", type: "lcc", hub: "DAL", regions: ["americas"], strengths: "US domestic. Free bags. No change fees." },
+  { code: "WN", name: "Southwest", type: "lcc", hub: "DAL", regions: ["americas"], strengths: "US domestic. Bags are no longer free. Assigned seating. No change fees." },
   { code: "B6", name: "JetBlue", type: "lcc", hub: "JFK", regions: ["americas"], strengths: "US east coast + Caribbean. Mint biz class." },
-  { code: "NK", name: "Spirit", type: "lcc", hub: "FLL", regions: ["americas"], strengths: "Ultra-low-cost US domestic." },
   { code: "F9", name: "Frontier", type: "lcc", hub: "DEN", regions: ["americas"], strengths: "Ultra-low-cost US domestic." },
   { code: "Y4", name: "Volaris", type: "lcc", hub: "MEX", regions: ["americas"], strengths: "Mexico domestic + US-Mexico." },
   // Oceania
