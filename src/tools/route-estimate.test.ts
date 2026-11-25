@@ -174,3 +174,11 @@ test("the tool is registered as free and read-only", () => {
   assert.match(tool!.description, /range/i);
   assert.match(tool!.description, /not a live quote/i);
 });
+
+// AIR-1391: the economy default must be visible, not silent.
+test("an estimate with no cabin says it priced economy, and one with a cabin does not", async () => {
+  const assumed = await withBackend(backendReturning(estimate()), () => routeEstimate({ cities: ["LAX", "NRT"] }));
+  assert.match(assumed.caveats![0], /Priced for economy cabin/);
+  const stated = await withBackend(backendReturning(estimate({ cabin: "business" })), () => routeEstimate({ cities: ["LAX", "NRT"], cabin: "business" }));
+  assert.ok(!stated.caveats!.some((c) => /Priced for/.test(c)));
+});

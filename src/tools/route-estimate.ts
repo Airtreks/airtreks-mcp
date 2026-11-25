@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assumedDefaults } from "../lib/safe-message.js";
 import { TRIP_PLANNER_URL } from "../lib/links.js";
 import {
   forwardPricingRequest,
@@ -138,7 +139,7 @@ export async function routeEstimate(args: {
     estimate: { low: result.low, high: result.high },
     confidence: result.confidence,
     basis: `${money(result.low)}-${money(result.high)} ${result.currency} per person, ${source}. ${describeConfidence(result)}`,
-    caveats: buildCaveats(result),
+    caveats: [...(assumedDefaults(args, false) ? [assumedDefaults(args, false)!] : []), ...buildCaveats(result)],
     planYourTrip: TRIP_PLANNER_URL,
   };
 }

@@ -351,3 +351,42 @@ test("the next steps do not mention carrier recommendations or a routing analysi
   assert.doesNotMatch(steps, /carrier|routing analysis/i);
   assert.match(steps, /route, dates, passengers, cabin and planning answers/);
 });
+
+// AIR-1391: a retry is a duplicate, a changed request is not, and the duplicate reply is honest.
+test("an identical resubmission is a duplicate, says created false, and says nothing was saved", async () => {
+  const first = await submitCapturing({}, "dupe-same@example.com");
+  assert.equal((first.result as any).tripIdeaId, 4242);
+  const { result, sent } = await submitCapturing({}, "dupe-same@example.com");
+  assert.equal(sent, null);
+  assert.equal((result as any).duplicate, true);
+  assert.equal((result as any).created, false);
+  assert.match((result as any).message, /nothing from this call was saved/);
+});
+
+test("the same email and route with different dates, passengers or cabin creates a new request", async () => {
+  await submitCapturing({}, "dupe-changed@example.com");
+  for (const change of [
+    { dates: ["2027-03-08", "2027-03-15", "2027-03-22"] },
+    { passengers: 3 },
+    { cabin: "business" },
+  ]) {
+    const { result, sent } = await submitCapturing(change, "dupe-changed@example.com");
+    assert.notEqual((result as any).duplicate, true, JSON.stringify(change));
+    assert.ok(sent, JSON.stringify(change));
+  }
+});
+
+test("a call that is missing details says needs_input and created false", async () => {
+  const result = await tripIdeaCreate({
+    email: "needs@example.com", name: "Needs Input", cities: ["PDX", "LAX"], dates: ["2027-02-01"],
+    datesGivenByTraveler: true, passengers: 1, cabin: "economy",
+  });
+  assert.equal((result as any).status, "needs_input");
+  assert.equal((result as any).created, false);
+});
+
+test("the questions field says to leave it out on the first call", async () => {
+  const { tripIdeaCreateSchema } = await import("./trip-idea-create.js");
+  assert.match(tripIdeaCreateSchema.questionsAnswers.description!, /Leave it out on the first call/);
+  assert.match(tripIdeaCreateSchema.questionsAnswers.description!, /Date flexibility/);
+});

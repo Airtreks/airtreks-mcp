@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { customerSafeMessage, assumedDefaults } from "../lib/safe-message.js";
 import { TRIP_PLANNER_URL, describeFlight } from "../lib/links.js";
 import { findAirportChanges } from "../lib/airport-changes.js";
 import {
@@ -92,6 +93,7 @@ export async function itineraryQuote(args: {
       route,
       cabin,
       status: "pending",
+      assumed: assumedDefaults(args, true),
       quoteReference: handle,
       // Spelled out because an agent that does not hold the reference cannot get
       // the answer back — there is no way to look a quote up by its question.
@@ -102,7 +104,7 @@ export async function itineraryQuote(args: {
     return {
       route,
       cabin,
-      error: err?.message || "We couldn't start pricing this trip.",
+      error: customerSafeMessage(err?.message, "We couldn't start pricing this trip."),
       tryInstead:
         "route_estimate gives a price range for the same cities immediately, without needing dates.",
       planYourTrip: TRIP_PLANNER_URL,
@@ -143,7 +145,7 @@ export async function itineraryQuoteStatus(
     try {
       state = await backend.getItineraryQuote(args.quoteReference);
     } catch (err: any) {
-      return { error: err?.message || "We couldn't retrieve that quote.", planYourTrip: TRIP_PLANNER_URL };
+      return { error: customerSafeMessage(err?.message, "We couldn't retrieve that quote."), planYourTrip: TRIP_PLANNER_URL };
     }
     if (state.status !== "pending" || Date.now() + wait.pollMs > deadline) break;
     await new Promise((resolve) => setTimeout(resolve, wait.pollMs));
@@ -160,7 +162,7 @@ export async function itineraryQuoteStatus(
   if (state.status === "unknown" || state.status === "failed") {
     return {
       status: state.status,
-      message: state.message ?? "We couldn't price this trip.",
+      message: customerSafeMessage(state.message, "We couldn't price this trip."),
       tryInstead: "route_estimate gives a price range for the same cities immediately.",
       planYourTrip: TRIP_PLANNER_URL,
     };
@@ -173,9 +175,10 @@ export async function itineraryQuoteStatus(
     return {
       status: "ready",
       route: state.route,
-      message:
-        state.message ??
+      message: customerSafeMessage(
+        state.message,
         "We couldn't price this trip. Trips this complex sometimes need a consultant to build by hand.",
+      ),
       unpricedSegments: state.unpriced?.length ? state.unpriced : undefined,
       planYourTrip: TRIP_PLANNER_URL,
     };

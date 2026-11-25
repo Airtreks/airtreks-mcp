@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+From the Grok test of 1.2.9 (AIR-1391).
+
+### trip_idea_create
+- **Duplicate check no longer drops changes.** It matched on email and route only, so a traveler who changed dates, passengers or cabin and resubmitted got the old lead back and lost the change. It now matches on email, route, dates, passengers and cabin. A true duplicate says `created: false` and that nothing from the call was saved.
+- A call that is missing details returns `status: "needs_input"` and `created: false`. The `questionsAnswers` text says to leave it out on the first call, and what to do when the traveler picks "Date flexibility".
+- The reply's next-steps no longer promise carrier recommendations.
+
+### Routing and pricing tools
+- `fare_product_match` no longer assumes the route goes one direction when the caller does not say. It works it out from the cities and reports how (`directionBasis`). A Pacific out-and-back is no longer called a classic round-the-world fare.
+- `custom_route_build` no longer says it gives carrier recommendations (it stopped in 1.2.8).
+- `route_estimate`, `fare_quote` and `itinerary_quote` say when they priced economy or one adult because none was given.
+- A raw supplier line such as "Amadeus error 866: NO FARE FOUND" is replaced with plain words and a next step.
+
 ## 1.2.9 — 2026-11-25
 
 ### trip_idea_create

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getTripBackend, forwardTripRequest } from "../lib/trip-backend.js";
-import { findRecentSubmission, recordSubmission } from "../lib/recent-submissions.js";
+import { findRecentSubmission, recordSubmission, detailOf } from "../lib/recent-submissions.js";
 import { getQuestionsCached } from "../lib/tp-questions.js";
 import { planRoute } from "./plan-route.js";
 import { TRIP_PLANNER_URL } from "../lib/links.js";
@@ -28,7 +28,7 @@ export const tripIdeaCreateSchema = {
   agentContext: z.string().max(4000).optional().describe("Summary of what the AI agent learned about this trip (auto-generated routing analysis, customer preferences discussed, etc.)"),
 
   // The Trip Planner questionnaire — dynamic, served by the backend (AIR-786)
-  questionsAnswers: z.union([z.record(z.string(), z.string()), z.string()]).optional().describe("The customer's answers to AirTreks' planning questions, keyed by question name (e.g. {\"guidance\": \"I want expert guidance from humans\"}). The answers must come from the customer — never pick one yourself. A JSON-encoded string of the same object is also accepted. Required, but don't guess the questions: call once without this — the response lists the current questions and their options to ask the customer."),
+  questionsAnswers: z.union([z.record(z.string(), z.string()), z.string()]).optional().describe("The customer's answers to AirTreks' planning questions, keyed by question name (e.g. {\"guidance\": \"I want expert guidance from humans\"}). The answers must come from the customer — never pick one yourself. A JSON-encoded string of the same object is also accepted. Leave it out on the first call: nothing is submitted, and the response (status \"needs_input\") lists the current questions and their options to ask the customer. It is required to submit. If the traveler answers \"Date flexibility\" to \"What matters most?\", also ask whether their dates can move and set flexibleDates."),
 
   // Attribution — which channel the request came through (AIR-1108)
   source: z.string().optional().describe("The AI platform or app this conversation is running in, lowercase (e.g. 'chatgpt', 'claude', 'perplexity'). Only tells AirTreks which channel the request came through — never put customer details here. Omit it if you don't know."),
@@ -151,6 +151,8 @@ export async function tripIdeaCreate(args: {
 
   if (missing.length) {
     return {
+      status: "needs_input",
+      created: false,
       error: `Cannot submit the trip request yet — still needed: ${missing.join("; ")}.`,
       questions: unanswered.length
         ? unanswered.map((q) => ({ name: q.name, question: q.question, options: q.options }))
@@ -171,13 +173,15 @@ export async function tripIdeaCreate(args: {
 
   // The backend does not dedupe requests submitted this way, which MCP
   // leads never carry — guard against AI-agent retries creating duplicates.
-  const recent = findRecentSubmission(email, cities);
+  const detail = detailOf(dates, passengers, cabin);
+  const recent = findRecentSubmission(email, cities, detail);
   if (recent) {
     return {
       success: true,
       duplicate: true,
+      created: false,
       tripIdeaId: recent.tripIdeaId,
-      message: `This trip was already submitted as trip request #${recent.tripIdeaId} — an AirTreks travel consultant already has it. No new request was created.`,
+      message: `This same trip (same route, dates, passengers and cabin) was already submitted as trip request #${recent.tripIdeaId}, and an AirTreks travel consultant has it. No new request was created and nothing from this call was saved: any new notes or planning answers were not added. If something changed, change the dates, passengers or cabin and submit again, or tell the traveler to reply to their confirmation email.`,
       route: cities.map((c) => c.toUpperCase()).join(" -> "),
     };
   }
@@ -273,7 +277,7 @@ export async function tripIdeaCreate(args: {
       sourceDetail: cleanAttribution(sourceDetail),
     });
 
-    if (result.id) recordSubmission(email, cities, result.id);
+    if (result.id) recordSubmission(email, cities, result.id, detail);
 
     // Solutions auto-created and emailed when the lead qualified (AIR-786).
     const solutionIds = Array.isArray(result.raw?.data?.solutionIds) ? result.raw.data.solutionIds : [];
