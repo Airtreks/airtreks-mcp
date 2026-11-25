@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRIP_PLANNER_URL, describeFlight } from "../lib/links.js";
+import { customerSafeMessage, assumedDefaults } from "../lib/safe-message.js";
 import { findAirportChanges, type AirportChange } from "../lib/airport-changes.js";
 import {
   forwardPricingRequest,
@@ -146,7 +147,7 @@ export async function fareQuote(args: {
     return {
       route,
       cabin,
-      error: err?.message || "We couldn't price this itinerary.",
+      error: customerSafeMessage(err?.message, "We couldn't price this itinerary."),
       tryInstead:
         "route_estimate gives a price range for the same cities without needing dates, and answers in well under a second.",
       planYourTrip: TRIP_PLANNER_URL,
@@ -162,9 +163,10 @@ export async function fareQuote(args: {
       route: result.route,
       cabin: result.cabin,
       travellers,
-      message:
-        result.message ??
+      message: customerSafeMessage(
+        result.message,
         "We couldn't price this itinerary as a single fare. Complex multi-stop trips often need to be split across separate tickets — an AirTreks consultant builds those by hand.",
+      ),
       planYourTrip: TRIP_PLANNER_URL,
     };
   }
@@ -210,6 +212,7 @@ export async function fareQuote(args: {
         }
       : {}),
     caveats: [
+      ...(assumedDefaults(args, true) ? [assumedDefaults(args, true)!] : []),
       "These are live fares for the dates given — availability and price can change between now and booking.",
       ...(hasCodeshare(result.options)
         ? [

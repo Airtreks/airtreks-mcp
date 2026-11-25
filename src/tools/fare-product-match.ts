@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { fareProducts, recommendFareProduct } from "../data/fare-products.js";
 import { TRIP_PLANNER_URL } from "../lib/links.js";
+import { detectDirection } from "./plan-route.js";
 
 export const fareProductMatchSchema = {
   cities: z.array(z.string()).describe("Ordered list of IATA city/airport codes"),
-  isOneDirection: z.boolean().optional().describe("Is the route traveling continuously in one direction (east or west)?"),
-  includeBacktracking: z.boolean().optional().describe("Does the route backtrack or zigzag between regions?"),
+  isOneDirection: z.boolean().optional().describe("Is the route traveling continuously in one direction (east or west)? Leave it out and it is worked out from the cities."),
+  includeBacktracking: z.boolean().optional().describe("Does the route backtrack or zigzag between regions? Leave it out and it is worked out from the cities."),
 };
 
 export function fareProductMatch(args: {
@@ -13,7 +14,13 @@ export function fareProductMatch(args: {
   isOneDirection?: boolean;
   includeBacktracking?: boolean;
 }) {
-  const { cities, isOneDirection = true, includeBacktracking = false } = args;
+  const { cities } = args;
+  // No silent defaults (AIR-1391): assuming "one direction" made a Pacific out-and-back
+  // look like a classic round-the-world fare. Work it out from the cities unless told.
+  const detected = detectDirection(cities);
+  const isOneDirection = args.isOneDirection ?? detected.direction !== "mixed";
+  const includeBacktracking = args.includeBacktracking ?? detected.backtracking;
+  const directionBasis = args.isOneDirection === undefined ? `worked out from the cities: ${detected.direction}` : "as you stated";
   const legs = cities.length - 1;
   const isRoundTrip = cities[0]?.toUpperCase() === cities[cities.length - 1]?.toUpperCase();
 
@@ -33,6 +40,7 @@ export function fareProductMatch(args: {
     route: cities.join(" → "),
     legs,
     isRoundTrip,
+    directionBasis,
     recommendations: recommendations.map((r) => ({
       fareProduct: r.product.name,
       code: r.product.code,

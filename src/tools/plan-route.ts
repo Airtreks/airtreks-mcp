@@ -51,7 +51,7 @@ function getLongitude(code: string): number | null {
   return cityLongitudes[code.toUpperCase()] ?? null;
 }
 
-function detectDirection(cities: string[]): { direction: "eastbound" | "westbound" | "mixed"; backtracking: boolean } {
+export function detectDirection(cities: string[]): { direction: "eastbound" | "westbound" | "mixed"; backtracking: boolean } {
   const lons: (number | null)[] = cities.map((c) => getLongitude(c.toUpperCase()));
   const validLons = lons.filter((l): l is number => l !== null);
 

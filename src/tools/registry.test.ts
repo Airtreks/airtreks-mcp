@@ -53,3 +53,10 @@ test("every tool is declared callable without an account", () => {
     assert.deepEqual(toolMeta(tool).securitySchemes, [{ type: "noauth" }], tool.name);
   }
 });
+
+// AIR-1391: carrier picks were removed from the routing tools in 1.2.8; their text must not promise them.
+test("custom_route_build does not promise carrier recommendations or prices", () => {
+  const tool = TOOLS.find((t) => t.name === "custom_route_build")!;
+  assert.doesNotMatch(tool.description, /carrier recommendations/i);
+  assert.match(tool.description, /does not choose airlines/);
+});
