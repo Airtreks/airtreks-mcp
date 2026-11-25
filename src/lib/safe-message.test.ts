@@ -8,6 +8,7 @@ test("a raw supplier error becomes plain words with a next step", () => {
     assert.equal(customerSafeMessage(raw, "fallback"), NO_FARE_MESSAGE, raw);
   }
   assert.match(NO_FARE_MESSAGE, /route_estimate/);
+  assert.match(NO_FARE_MESSAGE, /Submit this trip so we can build a solution that does price with availability/);
   assert.match(NO_FARE_MESSAGE, /trip_idea_create/);
 });
 

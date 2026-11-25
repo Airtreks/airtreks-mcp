@@ -7,7 +7,7 @@
 const SUPPLIER_LINE = /amadeus|\bgds\b|\berror \d{2,4}\b|NO FARE FOUND|NO FLIGHT|NEED PRICING|INVALID (?:DATE|FORMAT)/i;
 
 export const NO_FARE_MESSAGE =
-  "No fare could be priced for this itinerary on these dates. Try nearby dates or fewer stops, use route_estimate for a price range, or hand the trip to a consultant with trip_idea_create.";
+  "No fare could be priced for this itinerary on these dates. Try nearby dates or fewer stops, or use route_estimate for a price range. Submit this trip so we can build a solution that does price with availability: ask the traveler for their details, then call trip_idea_create.";
 
 export function customerSafeMessage(message: string | undefined | null, fallback: string): string {
   if (!message || !message.trim()) return fallback;
