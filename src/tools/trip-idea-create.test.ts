@@ -15,7 +15,7 @@ test("without an injected backend and no API key, forwarding explains how to reg
   setTripBackend(null);
   try {
     delete process.env.AIRTREKS_API_KEY;
-    const result = await tripIdeaCreate({ email: "x@example.com", name: "X", cities: ["SFO", "NRT"], dates: ["2027-01-10"], passengers: 1, cabin: "economy" });
+    const result = await tripIdeaCreate({ email: "x@example.com", name: "X", cities: ["SFO", "NRT"], dates: ["2027-01-10"], datesGivenByTraveler: true, passengers: 1, cabin: "economy" });
     assert.match(result.error!, /AirTreks API key/);
     assert.match((result as any).register, /\/register/);
   } finally {
@@ -53,7 +53,7 @@ const VALID_ANSWERS = {
 beforeEach(() => seedQuestionsCache());
 
 test("reports every missing required field in one pass, including the questionnaire", async () => {
-  const result = await tripIdeaCreate({ email: "not-an-email", name: "  ", cities: ["LAX"], dates: [], passengers: 1, cabin: "economy" });
+  const result = await tripIdeaCreate({ email: "not-an-email", name: "  ", cities: ["LAX"], dates: [], datesGivenByTraveler: true, passengers: 1, cabin: "economy" });
   assert.ok(result.error);
   assert.match(result.error!, /valid customer email/);
   assert.match(result.error!, /full name/);
@@ -70,7 +70,7 @@ test("requires a date for every leg, not just the first", async () => {
     name: "Leg Traveler",
     cities: ["SFO", "NRT", "BKK", "SFO"],
     dates: ["2026-11-10"],
-    passengers: 1,
+    datesGivenByTraveler: true, passengers: 1,
     cabin: "economy",
     questionsAnswers: VALID_ANSWERS,
   });
@@ -83,7 +83,7 @@ test("an answer that is not one of the question's options is rejected", async ()
     name: "Opt Traveler",
     cities: ["SFO", "NRT"],
     dates: ["2026-11-10"],
-    passengers: 1,
+    datesGivenByTraveler: true, passengers: 1,
     cabin: "economy",
     questionsAnswers: { confidence: "very!", guidance: "I want expert guidance from humans" },
   });
@@ -99,7 +99,7 @@ test("with no cached questions and APEX unreachable, the questionnaire is skippe
     name: "No Questions",
     cities: ["SFO", "NRT"],
     dates: ["2026-11-10"],
-    passengers: 1,
+    datesGivenByTraveler: true, passengers: 1,
     cabin: "economy",
   });
   // passes validation; fails later only because APEX isn't configured in tests
@@ -113,7 +113,7 @@ test("a recently submitted email+route returns the existing trip idea instead of
     name: "Dupe Traveler",
     cities: ["SFO", "SYD", "SFO"],
     dates: ["2026-11-10", "2026-11-24"],
-    passengers: 1,
+    datesGivenByTraveler: true, passengers: 1,
     cabin: "economy",
     questionsAnswers: VALID_ANSWERS,
   });
@@ -129,7 +129,7 @@ test("accepts questionsAnswers as a JSON string (stale-schema clients)", async (
     name: "Stale Schema",
     cities: ["OTP", "MAD", "OTP"],
     dates: ["2027-03-04", "2027-03-08"],
-    passengers: 1,
+    datesGivenByTraveler: true, passengers: 1,
     cabin: "economy",
     questionsAnswers: JSON.stringify(VALID_ANSWERS),
   });
@@ -144,7 +144,7 @@ test("an unparseable questionsAnswers string is treated as unanswered, not a cra
     name: "Garbled",
     cities: ["OTP", "MAD"],
     dates: ["2027-03-04"],
-    passengers: 1,
+    datesGivenByTraveler: true, passengers: 1,
     cabin: "economy",
     questionsAnswers: "guidance: humans please",
   });
@@ -171,7 +171,7 @@ async function submitCapturing(extra: Record<string, unknown>, email: string) {
       name: "Source Traveler",
       cities: ["SFO", "NRT", "BKK", "SFO"],
       dates: ["2027-02-01", "2027-02-08", "2027-02-15"],
-      passengers: 1,
+      datesGivenByTraveler: true, passengers: 1,
       cabin: "economy",
       questionsAnswers: VALID_ANSWERS,
       ...extra,
@@ -238,7 +238,7 @@ test("a duplicate submission returns no trip link and never asks the backend for
       name: "Repeat Traveler",
       cities: ["SFO", "LHR", "SFO"],
       dates: ["2027-04-01", "2027-04-15"],
-      passengers: 1,
+      datesGivenByTraveler: true, passengers: 1,
       cabin: "economy",
       questionsAnswers: VALID_ANSWERS,
     });
@@ -291,7 +291,7 @@ test("an email carrying several addresses is rejected", async () => {
   for (const email of ["a@b.com,x@y.com", "a@b.com;x@y.com", "<a@b.com>", "a@b.com x@y.com"]) {
     const result = await tripIdeaCreate({
       email, name: "Multi", cities: ["PDX", "LAX"], dates: ["2027-02-01"],
-      passengers: 1, cabin: "economy", questionsAnswers: VALID_ANSWERS,
+      datesGivenByTraveler: true, passengers: 1, cabin: "economy", questionsAnswers: VALID_ANSWERS,
     });
     assert.match(result.error!, /valid customer email/, email);
   }
@@ -312,4 +312,34 @@ test("newlines in free text cannot forge lines in the consultant notes", async (
 test("the email is sent trimmed", async () => {
   const { sent } = await submitCapturing({ email: "  trim@example.com  " }, "  trim@example.com  ");
   assert.equal(sent.email, "trim@example.com");
+});
+
+// AIR-1311: an agent must not make up dates.
+test("dates the traveler did not give are rejected, and the agent is told to ask", async () => {
+  for (const flag of [false, undefined]) {
+    const result = await tripIdeaCreate({
+      email: "nodates@example.com", name: "No Dates", cities: ["PDX", "LAX"], dates: ["2027-02-01"],
+      datesGivenByTraveler: flag, passengers: 1, cabin: "economy", questionsAnswers: VALID_ANSWERS,
+    });
+    assert.match(result.error!, /dates from the traveler/);
+    assert.match(result.error!, /datesGivenByTraveler true/);
+  }
+});
+
+test("impossible and out-of-order dates are rejected", async () => {
+  const base = { email: "baddates@example.com", name: "Bad Dates", cities: ["PDX", "LAX", "AKL"], datesGivenByTraveler: true, passengers: 1, cabin: "economy", questionsAnswers: VALID_ANSWERS };
+  const fake = await tripIdeaCreate({ ...base, dates: ["2027-02-30", "2027-03-01"] });
+  assert.match(fake.error!, /real calendar dates/);
+  const backwards = await tripIdeaCreate({ ...base, dates: ["2027-03-10", "2027-03-01"] });
+  assert.match(backwards.error!, /travel order/);
+});
+
+test("the notes say the dates came from the traveler", async () => {
+  const { sent } = await submitCapturing({}, "datesnote@example.com");
+  assert.match(sent.notes, /Dates: given by the traveler/);
+});
+
+test("the tool text tells agents never to make up dates", async () => {
+  const { tripIdeaCreateSchema } = await import("./trip-idea-create.js");
+  assert.match(tripIdeaCreateSchema.datesGivenByTraveler.description!, /Never pick, guess or fill in dates/);
 });

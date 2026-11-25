@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### trip_idea_create
+- **No invented dates:** new required `datesGivenByTraveler`. A request is rejected unless the agent confirms the traveler gave the dates, and dates must be real calendar dates in travel order. The consultant notes record that the dates came from the traveler.
+
 ## 1.2.8 — 2026-11-03
 
 ### trip_idea_create
