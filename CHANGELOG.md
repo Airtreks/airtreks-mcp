@@ -1,9 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.2.9 — 2026-11-25
 
 ### trip_idea_create
 - **No invented dates:** new required `datesGivenByTraveler`. A request is rejected unless the agent confirms the traveler gave the dates, and dates must be real calendar dates in travel order. The consultant notes record that the dates came from the traveler.
+
+### Carriers
+- Spirit Airlines removed (ceased operations 2026-05-02); Southwest bags are no longer listed as free.
 
 ## 1.2.8 — 2026-11-03
 
