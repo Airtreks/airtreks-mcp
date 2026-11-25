@@ -343,3 +343,11 @@ test("the tool text tells agents never to make up dates", async () => {
   const { tripIdeaCreateSchema } = await import("./trip-idea-create.js");
   assert.match(tripIdeaCreateSchema.datesGivenByTraveler.description!, /Never pick, guess or fill in dates/);
 });
+
+// AIR-1311: carrier picks were removed from the lead, so the reply must not promise them.
+test("the next steps do not mention carrier recommendations or a routing analysis", async () => {
+  const { result } = await submitCapturing({}, "nextsteps@example.com");
+  const steps = ((result as any).whatHappensNext as string[]).join(" | ");
+  assert.doesNotMatch(steps, /carrier|routing analysis/i);
+  assert.match(steps, /route, dates, passengers, cabin and planning answers/);
+});

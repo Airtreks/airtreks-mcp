@@ -297,8 +297,8 @@ export async function tripIdeaCreate(args: {
       autoSolutionsSent: solutionIds.length || undefined,
       consultant: "A consultant will be assigned based on route expertise and availability.",
       whatHappensNext: [
-        "An AirTreks consultant receives your full routing analysis and preferences",
-        "They'll review the carrier recommendations and optimize pricing",
+        "An AirTreks consultant receives your route, dates, passengers, cabin and planning answers",
+        "They'll review the route and work out the best pricing",
         "You'll get a detailed quote with exact fares within 1 business day",
         "The consultant can adjust the routing based on your feedback",
       ],
