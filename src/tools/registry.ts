@@ -76,7 +76,7 @@ const RAW_TOOLS: ToolDef[] = [
   {
     name: "trip_idea_create",
     title: "Submit a Trip Request (Consultant Handoff)",
-    description: "Submit the customer's trip to AirTreks as a complete, structured trip request - a human travel consultant takes over from there. Ask the traveler for everything before calling, never guess or fill in defaults: name, email, the cities in order (3-letter IATA codes), a departure date for every leg, number of passengers, cabin (economy, premium or business), and their answers to AirTreks' planning questions. Also ask about budget, flexible dates, preferences and anything else the consultant should know. Call once without questionsAnswers to receive the current planning questions to put to the traveler.",
+    description: "Submit the customer's trip to AirTreks as a complete, structured trip request - a human travel consultant takes over from there. Ask the traveler for everything before calling, never guess or fill in defaults: name, email, the cities in order (3-letter IATA codes), a departure date for every leg (the traveler's own dates, never invented; send datesGivenByTraveler true only when they gave them), number of passengers, cabin (economy, premium or business), and their answers to AirTreks' planning questions. Also ask about budget, flexible dates, preferences and anything else the consultant should know. Call once without questionsAnswers to receive the current planning questions to put to the traveler.",
     schema: tripIdeaCreateSchema,
     fn: tripIdeaCreate,
     readOnly: false,

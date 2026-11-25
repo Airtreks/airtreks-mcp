@@ -14,6 +14,7 @@ export const tripIdeaCreateSchema = {
   // Trip details
   cities: z.array(z.string().max(8)).max(14).describe("Ordered list of 3-letter IATA city/airport codes (e.g. ['SFO', 'NRT', 'BKK'])"),
   dates: z.array(z.string().max(10)).min(1).max(14).describe("Departure dates, one per leg (ISO format, e.g. '2026-09-15') — a trip with N cities needs N-1 dates, all required. Ask the customer; never invent dates. If they only know roughly, use their stated estimates and set flexibleDates."),
+  datesGivenByTraveler: z.boolean().describe("Required. true ONLY if the traveler told you these dates (or their own rough estimates) in this conversation. If they have not, ask them and wait for the answer. Never pick, guess or fill in dates, and never use today's date or a placeholder: a made-up date sends a consultant to work a trip that does not exist. A request with this false or missing is rejected."),
   passengers: z.number().int().min(1).describe("Number of passengers (required — ask the customer, there is no default)"),
   cabin: z.enum(["economy", "premium", "business"]).describe("Cabin class (required — ask the customer, there is no default)"),
   budget: z.enum(["budget", "mid", "premium", "business"]).optional().describe("Budget tier"),
@@ -64,6 +65,7 @@ export async function tripIdeaCreate(args: {
   phone?: string;
   cities: string[];
   dates: string[];
+  datesGivenByTraveler?: boolean;
   passengers: number;
   cabin: string;
   budget?: string;
@@ -112,6 +114,12 @@ export async function tripIdeaCreate(args: {
   const legs = cities && cities.length >= 2 ? cities.length - 1 : 0;
   if (legs && (!dates || dates.length < legs)) missing.push(`a departure date for every leg — ${legs} dates for ${cities.length} cities (ISO format, e.g. '2026-09-15'; use the customer's best estimates plus flexibleDates if unsure)`);
   else if (dates?.some((d) => !ISO_DATE.test(d))) missing.push("every date in ISO format (YYYY-MM-DD)");
+  else if (dates) {
+    // Made-up dates (AIR-1311): the traveler must have supplied them, and they must be real and in order.
+    if (args.datesGivenByTraveler !== true) missing.push("dates from the traveler: ask them when they want to leave each leg, wait for the answer, then resubmit with datesGivenByTraveler true. Do not guess or fill in dates");
+    if (dates.some((d) => Number.isNaN(Date.parse(d)) || new Date(d).toISOString().slice(0, 10) !== d)) missing.push("real calendar dates (e.g. not 2027-02-30)");
+    else if (dates.some((d, i) => i > 0 && d < dates[i - 1])) missing.push("dates in travel order (each leg on or after the one before)");
+  }
 
   // The Trip Planner questionnaire (Sean, AIR-786: same questions as the TP
   // form). Fetched live — never hardcoded, so edits in TP admin apply here
@@ -231,6 +239,7 @@ export async function tripIdeaCreate(args: {
   if (budget) noteLines.push(`\nBudget: ${budget}`);
   noteLines.push(`Passengers: ${passengers}`);
   noteLines.push(`Cabin: ${cabin}`);
+  noteLines.push("Dates: given by the traveler");
   if (flexibleDates) noteLines.push("Dates are flexible");
   if (preferences?.length) noteLines.push(`Preferences: ${preferences.join(", ")}`);
   // The traveler's own planning answers, in plain words, so no one downstream
